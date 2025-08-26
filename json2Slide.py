@@ -65,10 +65,10 @@ CONFIG = {
         "sizes": {
             "title": Pt(45),
             "sectionTitle": Pt(38),
-            "contentTitle": Pt(28),
-            "subhead": Pt(18),
-            "body": Pt(16),
-            "caption": Pt(12),
+            "contentTitle": Pt(30),
+            "subhead": Pt(28),
+            "body": Pt(22),
+            "caption": Pt(20),
             "ghostNum": Pt(180),
         }
     },
@@ -76,17 +76,19 @@ CONFIG = {
     # ---------------- レイアウト座標 ----------------
     "POS_PX": {
         "titleSlide": {
-            "title": {"left": 50, "top": 230, "width": 800, "height": 90},
-            "date": {"left": 50, "top": 340, "width": 250, "height": 40},
-        },
+            "subject":  {"left": 50, "top": 140, "width": 800, "height": 40},  
+                "title":    {"left": 50, "top": 190, "width": 800, "height": 90},  
+                "lecturer": {"left": 50, "top": 290, "width": 400, "height": 40},  
+                "date":     {"left": 50, "top": 330, "width": 250, "height": 40},  
+        },        
         "sectionSlide": {
             "title": {"left": 55, "top": 230, "width": 840, "height": 80},
-            "ghostNum": {"left": 35, "top": 120, "width": 300, "height": 200},
+            "ghostNum": {"left": 100, "top": 120, "width": 300, "height": 200},
         },
         "contentSlide": {
-            "title": {"left": 25, "top": 60, "width": 830, "height": 65},
-            "subhead": {"left": 25, "top": 140, "width": 830, "height": 30},
-            "body": {"left": 25, "top": 172, "width": 910, "height": 303},
+            "title": {"left": 25, "top": 40, "width": 830, "height": 50},
+            "subhead": {"left": 25, "top": 100, "width": 830, "height": 30},
+            "body": {"left": 25, "top": 150, "width": 910, "height": 303},
         }
     }
 }
@@ -193,6 +195,17 @@ class SlideFactory:
     def add_title(self, data: Dict[str, Any]):
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
 
+        # 教科名
+        subj_rect = self.layout.get_rect("titleSlide.subject")
+        subj_box = s.shapes.add_textbox(subj_rect["left"], subj_rect["top"], subj_rect["width"], subj_rect["height"])
+        subj_p = subj_box.text_frame.paragraphs[0]
+        self._style_text(
+            subj_p,
+            data.get("subject", ""),
+            self.fonts["sizes"]["contentTitle"],
+            color=self.colors["subtext"]
+        )
+
         # タイトル
         rect = self.layout.get_rect("titleSlide.title")
         box = s.shapes.add_textbox(rect["left"], rect["top"], rect["width"], rect["height"])
@@ -203,6 +216,17 @@ class SlideFactory:
             self.fonts["sizes"]["title"],
             bold=True,
             color=self.colors["primary"]
+        )
+
+        # 講師名（固定）
+        l_rect = self.layout.get_rect("titleSlide.lecturer")
+        lbox = s.shapes.add_textbox(l_rect["left"], l_rect["top"], l_rect["width"], l_rect["height"])
+        lp = lbox.text_frame.paragraphs[0]
+        self._style_text(
+            lp,
+            "講師名：〇〇　〇〇",
+            self.fonts["sizes"]["body"],
+            color=self.colors["text"]
         )
 
         # 日付
@@ -273,57 +297,105 @@ class SlideFactory:
                 self.fonts["sizes"]["subhead"],
                 color=self.colors["subtext"]
             )
+            sbox.text_frame.word_wrap = True
 
-        # Body (bullets)
-        points: List[str] = data.get("points", [])
+        # Body area
         b_rect = self.layout.get_rect("contentSlide.body")
-        bbox = s.shapes.add_textbox(b_rect["left"], b_rect["top"], b_rect["width"], b_rect["height"])
-        tf = bbox.text_frame
-        tf.clear()
-        for i, line in enumerate(points):
-            p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
-            self._style_text(
-                p,
-                line,
-                self.fonts["sizes"]["body"],
-                color=self.colors["text"]
-            )
+
+        points: List[str] = data.get("points", [])
+        body_text: str = data.get("bodyText", "")
+
+        last_y = b_rect["top"]
+
+        # --- 箇条書き ---
+        if points:
+            # 箇条書き部分
+            line_spacing = self.fonts["sizes"]["body"].pt + 10  # フォントサイズ + 行間
+            bbox = s.shapes.add_textbox(b_rect["left"], b_rect["top"], b_rect["width"], b_rect["height"])
+            tf = bbox.text_frame
+            tf.clear()
+            tf.word_wrap = True
+
+            for i, line in enumerate(points):
+                p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
+                self._style_text(p, line, self.fonts["sizes"]["body"], color=self.colors["text"])
+                p.space_after = Pt(10)
+
+            # 箇条書きの下位置を行数で見積もり（cm換算）
+            from pptx.util import Cm
+            lines_used = len(points)
+            last_y = b_rect["top"] + Cm((line_spacing * lines_used) / 28.35)
+
+        # --- 長文 ---
+        if body_text:
+            lbox = s.shapes.add_textbox(b_rect["left"], last_y + Pt(20), b_rect["width"], b_rect["height"])
+            tf2 = lbox.text_frame
+            tf2.word_wrap = True  # 折り返し有効
+            lp = tf2.paragraphs[0]
+            self._style_text(lp, body_text, self.fonts["sizes"]["body"], color=self.colors["text"])
 
         return s
     
+    # 比較    
     def add_compare(self, data: Dict[str, Any]):
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
 
-        # タイトル
+        # スライドタイトル
         t_rect = self.layout.get_rect("contentSlide.title")
         tbox = s.shapes.add_textbox(t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"])
         tp = tbox.text_frame.paragraphs[0]
-        self._style_text(tp, data.get("title", "比較"),self.fonts["sizes"]["contentTitle"],bold=True, color=self.colors["primary"])
+        self._style_text(tp, data.get("title", "比較"),
+                         self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
+
+        # ボックス配置
+        margin = Cm(1.5)
+        gap = Cm(1.5)
+        box_w = (self.prs.slide_width - margin * 2 - gap) / 2
+        box_h = Cm(8)
+        top = Cm(4)
+
+        def add_box(x, title, items):
+            box = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, top, box_w, box_h)
+            box.fill.solid()
+            box.fill.fore_color.rgb = self.colors["surface"]
+            box.line.color.rgb = self.colors["ghost"]
+
+            tf = box.text_frame
+            tf.clear()
+            tf.word_wrap = True
+
+            # タイトル
+            p = tf.paragraphs[0]
+            self._style_text(p, title, self.fonts["sizes"]["subhead"], bold=True, color=self.colors["text"])
+            p.space_after = Pt(15)
+
+            # 箇条書き
+            for item in items:
+                para = tf.add_paragraph()
+                self._style_text(para, f"• {item}", self.fonts["sizes"]["body"], color=self.colors["text"])
+                para.space_after = Pt(6)
 
         # 左ボックス
-        from pptx.util import Cm
-        left_box = s.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE, Cm(1), Cm(4), Cm(12), Cm(8)
+        add_box(margin,
+                data.get("leftTitle", "選択肢A"),
+                data.get("leftItems", [])
         )
-        left_box.fill.solid()
-        left_box.fill.fore_color.rgb = self.colors["surface"]
-        left_tf = left_box.text_frame
-        left_tf.text = data.get("leftTitle", "左側")
-        for item in data.get("leftItems", []):
-            p = left_tf.add_paragraph()
-            self._style_text(p, f"• {item}", self.fonts["sizes"]["body"])
 
         # 右ボックス
-        right_box = s.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE, Cm(14), Cm(4), Cm(12), Cm(8)
+        add_box(margin + box_w + gap,
+                data.get("rightTitle", "選択肢B"),
+                data.get("rightItems", [])
         )
-        right_box.fill.solid()
-        right_box.fill.fore_color.rgb = self.colors["surface"]
-        right_tf = right_box.text_frame
-        right_tf.text = data.get("rightTitle", "右側")
-        for item in data.get("rightItems", []):
-            p = right_tf.add_paragraph()
-            self._style_text(p, f"• {item}", self.fonts["sizes"]["body"])
+
+        # --- 結論 BodyText ---
+        body_text = data.get("bodyText", "")
+        if body_text:
+            b_rect = self.layout.get_rect("contentSlide.body")
+            lbox = s.shapes.add_textbox(b_rect["left"], top + box_h + Cm(1.0), b_rect["width"], Cm(3))
+            tf2 = lbox.text_frame
+            tf2.word_wrap = True
+            p = tf2.paragraphs[0]
+            self._style_text(p, body_text, self.fonts["sizes"]["body"], color=self.colors["text"], align=PP_ALIGN.CENTER)
 
         return s
 
@@ -485,7 +557,7 @@ def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
 # ---------------- CLI ----------------
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python make_slides.py plan.json out.pptx")
+        print("Usage: python json2.py plan.json out.pptx")
         sys.exit(1)
 
     plan_path = Path(sys.argv[1])
