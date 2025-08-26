@@ -20,6 +20,7 @@ from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Cm
+from pptx.enum.text import MSO_ANCHOR
 
 
 # -------- ユーザー環境に合わせて調整可能な既定値 --------
@@ -68,7 +69,7 @@ CONFIG = {
             "contentTitle": Pt(30),
             "subhead": Pt(28),
             "body": Pt(22),
-            "caption": Pt(20),
+            "caption": Pt(18),
             "ghostNum": Pt(180),
         }
     },
@@ -429,6 +430,8 @@ class SlideFactory:
 
             tf = card.text_frame
             tf.clear()
+            tf.word_wrap = True
+            tf.vertical_anchor = MSO_ANCHOR.TOP  
 
             if isinstance(item, dict):
                 title = str(item.get("title", ""))
@@ -437,7 +440,8 @@ class SlideFactory:
                 self._style_text(p, title, self.fonts["sizes"]["body"], bold=True, color=self.colors["primary"])
                 if desc:
                     p2 = tf.add_paragraph()
-                    self._style_text(p2, desc, self.fonts["sizes"]["body"], color=self.colors["text"])
+                    p2.space_before = Pt(8) 
+                    self._style_text(p2, desc, self.fonts["sizes"]["caption"], color=self.colors["text"])
             else:
                 p = tf.paragraphs[0]
                 self._style_text(p, str(item), self.fonts["sizes"]["body"], color=self.colors["text"])
@@ -454,41 +458,44 @@ class SlideFactory:
         tbox = s.shapes.add_textbox(t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"])
         tp = tbox.text_frame.paragraphs[0]
         self._style_text(tp, data.get("title", "進捗状況"),
-                     self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
+                         self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
 
         items = data.get("items", [])
-        bar_left = Cm(4)
-        bar_width = Cm(18)
-        bar_height = Cm(0.7)
+        bar_left = Cm(6)
+        bar_width = Cm(23) 
+        bar_height = Cm(1)
+        v_gap = Cm(1.5)
 
         for i, item in enumerate(items):
             label = str(item.get("label", f"Step {i+1}"))
             pct = max(0, min(100, int(item.get("percent", 0))))
 
+            y = Cm(4) + i * v_gap
+
             # ラベル
-            lbox = s.shapes.add_textbox(Cm(1), Cm(4 + i*2), Cm(3), Cm(1))
+            lbox = s.shapes.add_textbox(Cm(0.5), y - Cm(0.2), bar_left - Cm(1), bar_height)
             lp = lbox.text_frame.paragraphs[0]
-            self._style_text(lp, label, self.fonts["sizes"]["body"], color=self.colors["text"])
+            self._style_text(lp, label, self.fonts["sizes"]["body"], color=self.colors["text"], align=PP_ALIGN.RIGHT)
 
             # 背景バー
-            bg = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, bar_left, Cm(4 + i*2), bar_width, bar_height)
+            bg = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, bar_left, y, bar_width, bar_height)
             bg.fill.solid()
             bg.fill.fore_color.rgb = self.colors["ghost"]
-            bg.line.fill.background()  # 枠なし
+            bg.line.fill.background()
 
             # 実バー
-            fg = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, bar_left, Cm(4 + i*2), bar_width * pct / 100, bar_height)
+            fg = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, bar_left, y, bar_width * pct / 100, bar_height)
             fg.fill.solid()
             fg.fill.fore_color.rgb = self.colors["accent"]
             fg.line.fill.background()
 
-            # 数値ラベル
-            pbox = s.shapes.add_textbox(bar_left + bar_width + Cm(0.3), Cm(4 + i*2), Cm(2), Cm(1))
+            # 数値ラベル（右側も余裕広く）
+            pbox = s.shapes.add_textbox(bar_left + bar_width + Cm(0.5), y - Cm(0.2), Cm(4), bar_height)
             pp = pbox.text_frame.paragraphs[0]
             self._style_text(pp, f"{pct}%", self.fonts["sizes"]["body"], color=self.colors["subtext"])
 
         return s
-    # --- Timeline ---
+    
     def add_timeline(self, data: Dict[str, Any]):
         """タイムライン"""
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
@@ -498,46 +505,54 @@ class SlideFactory:
         tbox = s.shapes.add_textbox(t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"])
         tp = tbox.text_frame.paragraphs[0]
         self._style_text(tp, data.get("title", "タイムライン"),
-                     self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
+                         self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
+
+
+        slide_height = self.prs.slide_height
+
+        # バー位置をスライド中央に配置
+        bar_height = Cm(0.25)
+        bar_top = (slide_height - bar_height) / 2   # 上下中央
+        bar_left = Cm(4)                            # ← 左右を少し余白大きめに
+        bar_width = self.prs.slide_width - Cm(8)    # ← margin=4cmずつ確保
+
+        # ベースバー
+        bar = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, bar_left, bar_top, bar_width, bar_height)
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = self.colors["ghost"]
+        bar.line.fill.background()
 
         milestones = data.get("milestones", [])
         if not milestones:
-            return s
+            return s  # データがなければラインだけで終了
 
-        base_y = Cm(6)
-        left_x = Cm(2)
-        right_x = self.prs.slide_width - Cm(2)
-        line = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, left_x, base_y, right_x - left_x, Cm(0.2))
-        line.fill.solid()
-        line.fill.fore_color.rgb = self.colors["ghost"]
-        line.line.fill.background()
-
-        gap = (right_x - left_x) / max(1, len(milestones)-1)
-        dot_r = Cm(0.5)
+        step_x = bar_width / (len(milestones)-1 if len(milestones) > 1 else 1)
 
         for i, m in enumerate(milestones):
-            x = left_x + gap * i - dot_r/2
-            dot = s.shapes.add_shape(MSO_SHAPE.OVAL, x, base_y - dot_r/2, dot_r, dot_r)
-            dot.fill.solid()
-            dot.fill.fore_color.rgb = self.colors["accent"]
-            dot.line.fill.background()
+            title = str(m.get("label", f"Step {i+1}"))
+            date = str(m.get("date", ""))
 
-            # ラベル
-            lbox = s.shapes.add_textbox(x - Cm(1), base_y - Cm(1.5), Cm(3), Cm(0.7))
-            lp = lbox.text_frame.paragraphs[0]
-            self._style_text(lp, str(m.get("label", "")),
-                         self.fonts["sizes"]["body"], bold=True, color=self.colors["text"],
-                         align=PP_ALIGN.CENTER)
+            x = bar_left + i * step_x
+
+            # マーカー
+            circle = s.shapes.add_shape(MSO_SHAPE.OVAL, x-Cm(0.2), bar_top-Cm(0.2), Cm(0.4), Cm(0.4))
+            circle.fill.solid()
+            circle.fill.fore_color.rgb = self.colors["accent"]
+            circle.line.fill.background()
+
+            # タイトル（2行分確保・下揃え）
+            tbox = s.shapes.add_textbox(x-Cm(2), bar_top-Cm(2), Cm(4), Cm(1.5))
+            tf = tbox.text_frame
+            tf.word_wrap = True
+            tf.vertical_anchor = MSO_ANCHOR.BOTTOM
+            p = tf.paragraphs[0]
+            self._style_text(p, title, self.fonts["sizes"]["body"], bold=True, color=self.colors["text"], align=PP_ALIGN.CENTER)
 
             # 日付
-            dbox = s.shapes.add_textbox(x - Cm(1), base_y + Cm(0.5), Cm(3), Cm(0.7))
+            dbox = s.shapes.add_textbox(x-Cm(2), bar_top+Cm(0.5), Cm(4), Cm(1))
             dp = dbox.text_frame.paragraphs[0]
-            self._style_text(dp, str(m.get("date", "")),
-                         self.fonts["sizes"]["caption"], color=self.colors["subtext"],
-                         align=PP_ALIGN.CENTER)
-
-        return s
-
+            self._style_text(dp, date, self.fonts["sizes"]["caption"], color=self.colors["subtext"], align=PP_ALIGN.CENTER)
+    
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
     sf = SlideFactory()
