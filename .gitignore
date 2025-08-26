@@ -1,0 +1,35 @@
+# Python キャッシュや仮想環境
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+
+# VSCode / Visual Studio 関連
+.vscode/
+.vs/
+*.user
+*.suo
+*.cache
+*.pdb
+
+# 仮想環境
+venv/
+env/
+.myenv/
+
+# ビルド成果物
+build/
+dist/
+*.egg-info/
+
+# OSごとの不要ファイル
+.DS_Store
+Thumbs.db
+
+# その他不要ファイル
+*.bak
+*.tmp
+*.pptx
