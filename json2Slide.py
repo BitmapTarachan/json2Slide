@@ -21,6 +21,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Cm
 from pptx.enum.text import MSO_ANCHOR
+from PIL import Image
 
 
 # -------- ユーザー環境に合わせて調整可能な既定値 --------
@@ -186,7 +187,7 @@ class SlideFactory:
         run = paragraph.runs[0] if paragraph.runs else paragraph.add_run()
         run.font.name = self.fonts["family"]
         run.font.size = size
-        run.font.bold = bold
+        run.font.bold = bool(bold) if bold is not None else None
         run.font.italic = italic
         run.font.color.rgb = color or self.colors["text"]
         if align:
@@ -552,22 +553,244 @@ class SlideFactory:
             dbox = s.shapes.add_textbox(x-Cm(2), bar_top+Cm(0.5), Cm(4), Cm(1))
             dp = dbox.text_frame.paragraphs[0]
             self._style_text(dp, date, self.fonts["sizes"]["caption"], color=self.colors["subtext"], align=PP_ALIGN.CENTER)
+
+    def add_image_auto(self, data: Dict[str, Any]):
+        images = data.get("images", [])
+        n = len(images)
+        if n == 0:
+            return
+
+        # スライド作成
+        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+
+        # タイトル
+        t_rect = self.layout.get_rect("contentSlide.title")
+        tbox = slide.shapes.add_textbox(
+            t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"]
+        )
+        tp = tbox.text_frame.paragraphs[0]
+        self._style_text(
+            tp,
+            data.get("title", ""),
+            self.fonts["sizes"]["contentTitle"],
+            bold=True,
+            color=self.colors["primary"]
+        )
+
+        # 画像レイアウト分岐
+        if n == 1:
+            self._add_image_rightcontent(slide, images, Pt(24))
+        elif n == 2:
+            self._add_image_twocol(slide, images, Pt(22))
+        elif n == 3:
+            self._add_image_three_grid(slide, images, Pt(18))
+        elif n == 4:
+            self._add_image_four_grid(slide, images, Pt(18))
+
+        return slide    # --- 1枚: 右にキャプション ---
     
+    # --- 1枚: 画像 + 右にキャプション ---
+    def _add_image_rightcontent(self, slide, images, font_size):
+        img = images[0]
+        caption = img.get("caption", "")
+
+        # スライドサイズ
+        slide_width = self.prs.slide_width
+        slide_height = self.prs.slide_height
+        margin = Pt(20)
+
+        # 画像サイズ読み取り
+        with Image.open(img["url"]) as im:
+            iw, ih = im.size
+            aspect = iw / ih
+
+        # 横長か縦長かでリサイズ基準を切替
+        if aspect >= 1:  # 横長 → 横幅を中央まで広げる
+            max_width = slide_width / 2 - 2 * margin
+            width = max_width
+            height = width / aspect
+            left = margin
+            top = (slide_height - height) / 2
+        else:  # 縦長 → 上下いっぱいまで
+            max_height = slide_height - 2 * margin
+            height = max_height
+            width = height * aspect
+            left = margin
+            top = (slide_height - height) / 2
+
+        # 画像挿入
+        slide.shapes.add_picture(img["url"], left, top, width=width, height=height)
+
+        # キャプションテキスト
+        cap_left = slide_width / 2 + margin
+        cap_width = slide_width / 2 - 2 * margin
+        cap_height = slide_height - 2 * margin
+        cap_top = margin
+
+        txBox = slide.shapes.add_textbox(cap_left, cap_top, cap_width, cap_height)
+        tf = txBox.text_frame
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p = tf.paragraphs[0]
+        p.text = caption
+        p.alignment = PP_ALIGN.LEFT
+        self._style_text(p, caption, font_size, self.colors["text"])
+
+
+    # --- 2枚: 縦に並べて右にキャプション ---
+    def _add_image_twocol(self, slide, images, font_size):
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+        margin = Pt(40)
+        spacing = Pt(30)
+        title_height = Pt(60)  # タイトル領域を固定値で確保
+
+        # 画像の最大表示高さ
+        max_h = (slide_h - margin*2 - spacing - title_height) / 2
+        target_w = slide_w / 2 - margin * 2
+
+        # 画像を読み取り、リサイズ
+        scaled_sizes = []
+        for img in images:
+            with Image.open(img["url"]) as im:
+                iw, ih = im.size
+                scale = min(max_h/ih, target_w/iw)  # 高さ基準 + 横幅制限
+                new_w, new_h = iw*scale, ih*scale
+                scaled_sizes.append((new_w, new_h))
+
+        # 上下サイズをそろえる（小さい方に合わせる）
+        min_h = min(h for _, h in scaled_sizes)
+        scaled_sizes = [(w*(min_h/h), min_h) for w, h in scaled_sizes]
+
+        # 全体の高さ（上下 + spacing）
+        total_h = scaled_sizes[0][1] + scaled_sizes[1][1] + spacing
+        top_start = (slide_h - total_h) / 2 + title_height/2
+
+        shapes = []
+        for i, (img, (new_w, new_h)) in enumerate(zip(images, scaled_sizes)):
+            top = top_start + i*(new_h + spacing)
+            left = (slide_w/2 - new_w) / 2
+
+            # 画像配置
+            pic = slide.shapes.add_picture(img["url"], left, top, width=int(new_w), height=int(new_h))
+
+            # キャプションを画像の右に配置
+            cap_box = slide.shapes.add_textbox(
+                left+new_w+Pt(20), top, slide_w/2 - new_w - Pt(40), new_h
+            )
+            tf = cap_box.text_frame
+            p = tf.paragraphs[0]
+            self._style_text(p, img.get("caption",""), font_size, self.colors["text"])
+            p.alignment = PP_ALIGN.LEFT
+            tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            shapes.append((pic, cap_box))
+
+        return shapes
+
+    # --- 3枚: 横3グリッド + 下キャプション ---
+    def _add_image_three_grid(self, slide, images, font_size):
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+        margin = Pt(40)
+        spacing = Pt(30)
+        max_width_ratio = 0.8
+
+        # 全体幅の80%で均等割り
+        target_w = (slide_w * max_width_ratio - 2 * spacing) / 3
+
+        # スケールを各画像ごとに計算（幅基準）
+        scaled_sizes = []
+        for img in images:
+            with Image.open(img["url"]) as im:
+                iw, ih = im.size
+                scale = target_w / iw
+                new_w, new_h = iw * scale, ih * scale
+                scaled_sizes.append((int(new_w), int(new_h)))
+
+        # 配置開始位置（中央寄せ）
+        total_w = sum(w for w, h in scaled_sizes) + 2 * spacing
+        left_start = (slide_w - total_w) / 2
+
+        # 画像群のtop位置（画面中央の少し上）
+        img_max_h = max(h for w, h in scaled_sizes)
+        top_img = (slide_h / 2) - img_max_h / 2 - Pt(20)
+
+        # キャプションのY座標は固定
+        cap_top = top_img + img_max_h + Pt(10)
+
+        shapes = []
+        x = left_start
+        for i, (img, (w, h)) in enumerate(zip(images, scaled_sizes)):
+            # 画像（縦の余白は出る）
+            pic = slide.shapes.add_picture(img["url"], x, top_img + (img_max_h - h), width=w, height=h)
+            shapes.append(pic)
+
+            # キャプション（Y位置を固定）
+            cap_box = slide.shapes.add_textbox(x, cap_top, w, Pt(40))
+            tf = cap_box.text_frame
+            p = tf.paragraphs[0]
+            self._style_text(p, img.get("caption", ""), font_size, self.colors["text"])
+            p.alignment = PP_ALIGN.LEFT
+            tf.vertical_anchor = MSO_ANCHOR.TOP
+            shapes.append(cap_box)
+
+            x += w + spacing
+
+        return shapes
+
+    # --- 4枚: 横4グリッド + 下キャプション ---
+    def _add_image_four_grid(self, slide, images, font_size):
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+        margin = Pt(40)
+        spacing = Pt(30)
+        n = 4
+
+        # 横方向の基準幅を決定（スライド幅の80%を画像＋間隔で割る）
+        max_total_w = slide_w * 0.9
+        target_w = (max_total_w - spacing * (n - 1)) / n
+
+        resized = []
+        for img in images:
+            with Image.open(img["url"]) as im:
+                iw, ih = im.size
+            scale = target_w / iw
+            new_w, new_h = iw * scale, ih * scale
+            resized.append((new_w, new_h, img))
+
+        # 最大高さを取得（キャプションを合わせる基準）
+        max_h = max(h for _, h, _ in resized)
+
+        # 配置開始位置（中央揃え）
+        total_w = sum(w for w, _, _ in resized) + spacing * (n - 1)
+        left_base = (slide_w - total_w) / 2
+        top = slide_h * 0.35
+
+        # 配置ループ
+        cur_left = left_base
+        for w, h, img in resized:
+            # 画像
+            pic = slide.shapes.add_picture(img["url"], cur_left, top, width=int(w), height=int(h))
+
+            # キャプション（横揃え、Yは max_h に合わせる）
+            cap_box = slide.shapes.add_textbox(cur_left, top + max_h + Pt(10), w, Pt(28))
+            tf = cap_box.text_frame
+            p = tf.paragraphs[0]
+            self._style_text(p, img.get("caption", ""), font_size - 2, self.colors["text"])
+            p.alignment = PP_ALIGN.CENTER
+
+            cur_left += w + spacing
+
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
     sf = SlideFactory()
     for spec in plan.get("slides", []):
         t = spec.get("type")
-        if t=="title": sf.add_title(spec)
-        elif t=="section": sf.add_section(spec)
-        elif t=="content": sf.add_content(spec)
-        elif t=="compare": sf.add_compare(spec)
-        elif t=="cards": sf.add_cards(spec)
-        elif t=="progress": sf.add_progress(spec)
-        elif t=="timeline": sf.add_timeline(spec)
+        if t=="title"        : sf.add_title(spec)
+        elif t=="section"    : sf.add_section(spec)
+        elif t=="content"    : sf.add_content(spec)
+        elif t=="compare"    : sf.add_compare(spec)
+        elif t=="cards"      : sf.add_cards(spec)
+        elif t=="progress"   : sf.add_progress(spec)
+        elif t=="timeline"   : sf.add_timeline(spec)
+        elif t=="image-auto" : sf.add_image_auto(spec)
     sf.save(out_path)
-
-
 
 # ---------------- CLI ----------------
 if __name__ == "__main__":

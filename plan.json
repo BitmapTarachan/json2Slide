@@ -74,6 +74,40 @@
       ]
     },
     {
+      "type": "image-auto",
+      "title": "動物の特徴",
+      "images": [
+        {"url": "sample1.png", "caption": "哺乳類の例"}
+      ]
+    },
+    {
+      "type": "image-auto",
+      "title": "動物の比較",
+      "images": [
+        {"url": "sample1.png", "caption": "鳥類：羽がある"},
+        {"url": "sample2.png", "caption": "哺乳類：毛がある"}
+      ]
+    },
+    {
+      "type": "image-auto",
+      "title": "生物の分類",
+      "images": [
+        {"url": "sample1.png", "caption": "魚類"},
+        {"url": "sample2.png", "caption": "両生類"},
+        {"url": "sample3.png", "caption": "爬虫類"}
+      ]
+    },
+    {
+      "type": "image-auto",
+      "title": "哺乳類の例",
+      "images": [
+        {"url": "sample1.png", "caption": "ネコ"},
+        {"url": "sample2.png", "caption": "イヌ"},
+        {"url": "sample3.png", "caption": "ウシ"},
+        {"url": "sample4.png", "caption": "ウマ"}
+      ]
+    },
+    {
       "type": "section",
       "title": "2. まとめ",
       "sectionNo": 2
