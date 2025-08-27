@@ -8,6 +8,9 @@ majin-style slide factory with python-pptx
 """
 import json
 import sys
+import requests
+import io
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -21,6 +24,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Cm
 from pptx.enum.text import MSO_ANCHOR
+
 from PIL import Image
 
 
@@ -52,45 +56,45 @@ CONFIG = {
 
     # ---------------- テーマカラー定義 ----------------
     "COLORS": {
-        "primary": RGBColor(0x42, 0x85, 0xF4),      # メインカラー（タイトル・強調）
-        "accent": RGBColor(0xFB, 0xBC, 0x04),       # アクセントカラー（ハイライト・バー）
-        "background": RGBColor(0xFF, 0xFF, 0xFF),   # スライド背景
-        "surface": RGBColor(0xF8, 0xF9, 0xFA),      # セクション背景・ボックス背景
-        "text": RGBColor(0x33, 0x33, 0x33),         # 標準本文
-        "subtext": RGBColor(0x9E, 0x9E, 0x9E),      # 補助テキスト（日付・キャプション）
-        "ghost": RGBColor(0xEF, 0xEF, 0xED),        # ゴースト数字・区切り用
+        "primary"    : RGBColor(0x42, 0x85, 0xF4),   # メインカラー（タイトル・強調）
+        "accent"     : RGBColor(0xFB, 0xBC, 0x04),   # アクセントカラー（ハイライト・バー）
+        "background" : RGBColor(0xFF, 0xFF, 0xFF),   # スライド背景
+        "surface"    : RGBColor(0xF8, 0xF9, 0xFA),   # セクション背景・ボックス背景
+        "text"       : RGBColor(0x33, 0x33, 0x33),   # 標準本文
+        "subtext"    : RGBColor(0x9E, 0x9E, 0x9E),   # 補助テキスト（日付・キャプション）
+        "ghost"      : RGBColor(0xEF, 0xEF, 0xED),   # ゴースト数字・区切り用
     },
 
     # ---------------- フォント定義 ----------------
     "FONTS": {
         "family": "Biz UDゴシック",
         "sizes": {
-            "title": Pt(45),
-            "sectionTitle": Pt(38),
-            "contentTitle": Pt(30),
-            "subhead": Pt(28),
-            "body": Pt(22),
-            "caption": Pt(18),
-            "ghostNum": Pt(180),
+            "title"        : Pt(45),
+            "sectionTitle" : Pt(38),
+            "contentTitle" : Pt(30),
+            "subhead"      : Pt(28),
+            "body"         : Pt(22),
+            "caption"      : Pt(18),
+            "ghostNum"     : Pt(180),
         }
     },
 
     # ---------------- レイアウト座標 ----------------
     "POS_PX": {
         "titleSlide": {
-            "subject":  {"left": 50, "top": 140, "width": 800, "height": 40},  
-                "title":    {"left": 50, "top": 190, "width": 800, "height": 90},  
-                "lecturer": {"left": 50, "top": 290, "width": 400, "height": 40},  
-                "date":     {"left": 50, "top": 330, "width": 250, "height": 40},  
+            "subject":  { "left": 80, "top": 140, "width": 800, "height": 40},  
+                "title"    : { "left": 80, "top": 190, "width": 800, "height": 90 },  
+                "lecturer" : { "left": 80, "top": 290, "width": 400, "height": 40 },  
+                "date"     : { "left": 80, "top": 330, "width": 250, "height": 40 },  
         },        
         "sectionSlide": {
-            "title": {"left": 55, "top": 230, "width": 840, "height": 80},
-            "ghostNum": {"left": 100, "top": 120, "width": 300, "height": 200},
+            "title"    : { "left":  55, "top": 230, "width": 840, "height":  80 },
+            "ghostNum" : { "left": 100, "top": 120, "width": 300, "height": 200 },
         },
         "contentSlide": {
-            "title": {"left": 25, "top": 40, "width": 830, "height": 50},
-            "subhead": {"left": 25, "top": 100, "width": 830, "height": 30},
-            "body": {"left": 25, "top": 150, "width": 910, "height": 303},
+            "title"    : { "left": 28, "top":  30, "width": 830, "height":  50 },
+            "subhead"  : { "left": 25, "top": 100, "width": 830, "height":  30 },
+            "body"     : { "left": 25, "top": 150, "width": 910, "height": 303 },
         }
     }
 }
@@ -193,9 +197,109 @@ class SlideFactory:
         if align:
             paragraph.alignment = align
 
+    def _load_image(self, path_or_url: str):
+        """
+        ローカルファイル or URL から画像を読み込み、
+        pptx.add_picture 用の BytesIO と PIL.Image を返す。
+        """
+        image_stream = None
+
+        # URLの場合
+        if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+            try:
+                response = requests.get(path_or_url, timeout=10)
+                response.raise_for_status()
+                image_stream = io.BytesIO(response.content)
+            except Exception as e:
+                raise RuntimeError(f"URLから画像取得に失敗しました: {path_or_url} ({e})")
+        else:
+            # ローカルファイル
+            try:
+                with open(path_or_url, "rb") as f:
+                    image_stream = io.BytesIO(f.read())
+            except Exception as e:
+                raise RuntimeError(f"ローカル画像を開けません: {path_or_url} ({e})")
+
+        # サイズ取得用にPILで開く
+        image = Image.open(image_stream)
+        image.load()  # Lazy読み込みを強制
+        image_stream.seek(0)  # pptxで使う前にポインタを戻す
+
+        return image_stream, image
+
+    def _add_slide_title(self, slide, title: str):
+        """
+        スライドタイトルを描画する共通関数
+        左端にアクセントカラーの縦長バーを置き、
+        その右にタイトルテキストを配置する。
+        """
+        # レイアウトからタイトル領域を取得
+        t_rect = self.layout.get_rect("contentSlide.title")
+        left, top, width, height = t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"]
+
+        # --- 縦長バー ---
+        bar_width = Pt(6)   # 適度に細いバー
+        bar_margin = Pt(4)  # テキストとの間隔
+
+        slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            left, top,
+            bar_width, height
+        ).fill.solid()
+        slide.shapes[-1].fill.fore_color.rgb = self.colors["accent"]
+        slide.shapes[-1].line.fill.background()  # 枠線なし
+        slide.shapes[-1].shadow.inherit = False  # 影を消す（フラット）
+
+
+        # --- タイトルテキスト ---
+        tbox = slide.shapes.add_textbox(
+            left + bar_width + bar_margin, top,
+            width - bar_width - bar_margin, height
+        )
+        tf = tbox.text_frame
+        tp = tf.paragraphs[0]
+        self._style_text(
+            tp,
+            title,
+            self.fonts["sizes"]["contentTitle"],
+            bold=True,
+            color=self.colors["primary"]
+        )
+        tp.alignment = PP_ALIGN.LEFT
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+
     # ---------------- スライド実装 ----------------
     def add_title(self, data: Dict[str, Any]):
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+
+        # 右側に画像を配置（オプション）
+        if "image" in data and data["image"]:
+            stream, im = self._load_image(data["image"])
+            iw, ih = im.size
+            slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+
+            # 縦に合わせる（はみ出さないように調整）
+            scale = slide_h / ih
+            new_w, new_h = iw * scale, ih * scale
+
+            left = int(slide_w * 3/5)
+            top = 0
+            if left + new_w < slide_w:  # 幅足りないなら右寄せ
+                left = slide_w - new_w
+
+            s.shapes.add_picture(stream, left, top, width=int(new_w), height=int(new_h))
+
+        # 左側の縦線（Ghostカラー）
+        line_left = Pt(50)  # 余白を少し空ける
+        s.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            line_left, Pt(90),  # X, Y
+            Pt(2), slide_h - Pt(200)  
+        ).fill.solid()
+        s.shapes[-1].fill.fore_color.rgb = self.colors["ghost"]
+        s.shapes[-1].line.fill.background()  # 枠線なし
+        s.shapes[-1].shadow.inherit = False  # 影無し
 
         # 教科名
         subj_rect = self.layout.get_rect("titleSlide.subject")
@@ -241,6 +345,7 @@ class SlideFactory:
             self.fonts["sizes"]["body"],
             color=self.colors["subtext"]
         )
+
         return s
 
     def add_section(self, data: Dict[str, Any]):
@@ -274,18 +379,7 @@ class SlideFactory:
 
     def add_content(self, data: Dict[str, Any]):
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
-
-        # Title
-        t_rect = self.layout.get_rect("contentSlide.title")
-        tbox = s.shapes.add_textbox(t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"])
-        tp = tbox.text_frame.paragraphs[0]
-        self._style_text(
-            tp,
-            data.get("title", ""),
-            self.fonts["sizes"]["contentTitle"],
-            bold=True,
-            color=self.colors["primary"]
-        )
+        self._add_slide_title(s, data.get("title",""))
 
         # Subhead
         subhead = data.get("subhead")
@@ -341,13 +435,7 @@ class SlideFactory:
     # 比較    
     def add_compare(self, data: Dict[str, Any]):
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
-
-        # スライドタイトル
-        t_rect = self.layout.get_rect("contentSlide.title")
-        tbox = s.shapes.add_textbox(t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"])
-        tp = tbox.text_frame.paragraphs[0]
-        self._style_text(tp, data.get("title", "比較"),
-                         self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
+        self._add_slide_title(s, data.get("title","比較"))
 
         # ボックス配置
         margin = Cm(1.5)
@@ -405,12 +493,7 @@ class SlideFactory:
     def add_cards(self, data: Dict[str, Any]):
         """カード形式スライド"""
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
-
-        # タイトル
-        t_rect = self.layout.get_rect("contentSlide.title")
-        tbox = s.shapes.add_textbox(t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"])
-        tp = tbox.text_frame.paragraphs[0]
-        self._style_text(tp, data.get("title", "カード一覧"),self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
+        self._add_slide_title(s, data.get("title","一覧"))
 
         items = data.get("items", [])
         cols = min(3, max(1, int(data.get("columns", 3))))
@@ -453,13 +536,7 @@ class SlideFactory:
     def add_progress(self, data: Dict[str, Any]):
         """進捗バー"""
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
-
-        # タイトル
-        t_rect = self.layout.get_rect("contentSlide.title")
-        tbox = s.shapes.add_textbox(t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"])
-        tp = tbox.text_frame.paragraphs[0]
-        self._style_text(tp, data.get("title", "進捗状況"),
-                         self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
+        self._add_slide_title(s, data.get("title","進捗状況"))
 
         items = data.get("items", [])
         bar_left = Cm(6)
@@ -500,14 +577,7 @@ class SlideFactory:
     def add_timeline(self, data: Dict[str, Any]):
         """タイムライン"""
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
-
-        # タイトル
-        t_rect = self.layout.get_rect("contentSlide.title")
-        tbox = s.shapes.add_textbox(t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"])
-        tp = tbox.text_frame.paragraphs[0]
-        self._style_text(tp, data.get("title", "タイムライン"),
-                         self.fonts["sizes"]["contentTitle"], bold=True, color=self.colors["primary"])
-
+        self._add_slide_title(s, data.get("title",""))
 
         slide_height = self.prs.slide_height
 
@@ -562,20 +632,7 @@ class SlideFactory:
 
         # スライド作成
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
-
-        # タイトル
-        t_rect = self.layout.get_rect("contentSlide.title")
-        tbox = slide.shapes.add_textbox(
-            t_rect["left"], t_rect["top"], t_rect["width"], t_rect["height"]
-        )
-        tp = tbox.text_frame.paragraphs[0]
-        self._style_text(
-            tp,
-            data.get("title", ""),
-            self.fonts["sizes"]["contentTitle"],
-            bold=True,
-            color=self.colors["primary"]
-        )
+        self._add_slide_title(slide, data.get("title",""))
 
         # 画像レイアウト分岐
         if n == 1:
