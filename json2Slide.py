@@ -843,6 +843,299 @@ class SlideFactory:
             cur_left += w + spacing
 
         return shapes
+
+    # --- Q&A: Question ---
+    def add_qa_question(self, data: Dict[str, Any]):
+        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+
+        # ゴースト "Ｑ"（全角、大きく左上）
+        q_size = int(min(slide_w, slide_h) * 0.5)  # スライドの半分くらいの大きさ
+        qbox = s.shapes.add_textbox(Pt(0), Pt(0), q_size, q_size)
+        tf_q = qbox.text_frame
+        tf_q.word_wrap = False
+        tf_q.vertical_anchor = MSO_ANCHOR.TOP
+
+        qp = tf_q.paragraphs[0]
+        run = qp.add_run()
+        run.text = "Ｑ"
+        run.font.size = Pt(200)   # ゴーストQ専用サイズ（必要に応じて調整）
+        run.font.bold = True
+        run.font.color.rgb = self.colors["ghost"]
+        qp.alignment = PP_ALIGN.LEFT
+
+        # 質問文（中央揃え）
+        qtext_box = s.shapes.add_textbox(Pt(100), slide_h/3, slide_w - Pt(200), slide_h/3)
+        tf = qtext_box.text_frame
+        tf.word_wrap = True
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p = tf.paragraphs[0]
+        self._style_text(
+            p,
+            data.get("question", ""),
+            self.fonts["sizes"]["sectionTitle"],
+            bold=True,
+            color=self.colors["text"],
+            align=PP_ALIGN.CENTER
+        )
+
+        return s
+
+    # --- Q&A: Answer ---
+    def add_qa_answer(self, data: Dict[str, Any]):
+        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+
+        # ゴースト "Ａ"（全角、大きく左上）
+        a_size = int(min(slide_w, slide_h) * 0.5)
+        abox = s.shapes.add_textbox(Pt(0), Pt(0), a_size, a_size)
+        tf_a = abox.text_frame
+        tf_a.word_wrap = False
+        tf_a.vertical_anchor = MSO_ANCHOR.TOP
+
+        ap = tf_a.paragraphs[0]
+        run = ap.add_run()
+        run.text = "Ａ"
+        run.font.size = Pt(200)   # ゴーストA専用サイズ
+        run.font.bold = True
+        run.font.color.rgb = self.colors["ghost"]
+        ap.alignment = PP_ALIGN.LEFT
+
+        # 答え（中央に一言）
+        ans_box = s.shapes.add_textbox(Pt(100), Pt(200), slide_w - Pt(200), Pt(100))
+        tf_ans = ans_box.text_frame
+        ans_p = tf_ans.paragraphs[0]
+        self._style_text(
+            ans_p,
+            "答え : " + data.get("answer", ""),
+            self.fonts["sizes"]["contentTitle"],
+            bold=True,
+            color=self.colors["primary"],
+            align=PP_ALIGN.CENTER
+        )
+
+        # 解説（中央寄せ）
+        exp_box = s.shapes.add_textbox(Pt(100), slide_h/3, slide_w - Pt(200), slide_h/2)
+        tf_exp = exp_box.text_frame
+        tf_exp.word_wrap = True
+        tf_exp.vertical_anchor = MSO_ANCHOR.MIDDLE
+        exp_p = tf_exp.paragraphs[0]
+        self._style_text(
+            exp_p,
+            data.get("explanation", ""),
+            self.fonts["sizes"]["body"],
+            color=self.colors["text"],
+            align=PP_ALIGN.CENTER
+        )
+
+        return s
+    
+    # 表形式
+    def add_table_slide(self, data: Dict[str, Any]):
+        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+
+        self._add_slide_title(s, data.get("title", "表"))
+
+        headers = data.get("headers", [])
+        rows = data.get("rows", [])
+        n_rows, n_cols = len(rows) + 1, len(headers)
+
+        top = Pt(100)
+        left = Pt(40)
+        width = int(slide_w - Pt(80))
+        height = int(slide_h * 0.55)
+
+        table_shape = s.shapes.add_table(n_rows, n_cols, left, top, width, height)
+        table = table_shape.table
+
+        # 列幅（整数化必須）
+        col_width = int(width / n_cols)
+        for col in table.columns:
+            col.width = col_width
+
+        # 行高さ（整数化必須）
+        row_height = int(height / n_rows)
+        for row in table.rows:
+            row.height = row_height
+
+        # ヘッダー
+        for j, header in enumerate(headers):
+            cell = table.cell(0, j)
+            cell.text_frame.clear()
+            p = cell.text_frame.paragraphs[0]
+            run = p.add_run()
+            run.text = header
+            run.font.size = Pt(18)
+            run.font.bold = True
+            run.font.name = "BIZ UDゴシック"
+            run.font.color.rgb = self.colors["background"]
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = self.colors["primary"]
+            p.alignment = PP_ALIGN.CENTER
+
+        # データ
+        for i, row_data in enumerate(rows):
+            for j, val in enumerate(row_data):
+                cell = table.cell(i + 1, j)
+                cell.text_frame.clear()
+                p = cell.text_frame.paragraphs[0]
+                run = p.add_run()
+                run.text = str(val)
+                run.font.size = Pt(16)
+                run.font.name = "BIZ UDゴシック"
+                run.font.color.rgb = self.colors["text"]
+                p.alignment = PP_ALIGN.CENTER
+                if i % 2 == 0:
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = self.colors["surface"]
+
+        # bodyText（高さが溢れないように制限）
+        body_text = data.get("bodyText")
+        if body_text:
+            b_top = min(top + height + Pt(20), slide_h - Pt(100))
+            b_left = Pt(40)
+            b_width = int(slide_w - Pt(80))
+            b_height = int(slide_h - b_top - Pt(40))
+
+            box = s.shapes.add_textbox(b_left, b_top, b_width, b_height)
+            tf = box.text_frame
+            tf.clear()
+            p = tf.paragraphs[0]
+            run = p.add_run()
+            run.text = body_text
+            run.font.size = Pt(16)
+            run.font.name = "BIZ UDゴシック"
+            run.font.color.rgb = self.colors["text"]
+
+        return s
+    
+    # 手順解説
+    def add_flow_slide(self, data: Dict[str, Any]):
+        """
+        data = {
+            "type": "flow",
+            "title": "学習ステップ",
+            "direction": "horizontal",  # "vertical" も選択可能
+            "steps": [
+                "基礎を理解する",
+                "例題を解く",
+                "応用問題に挑戦",
+                "テストで確認",
+                "フィードバック"
+            ]
+        }
+        """
+        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        self._add_slide_title(s, data["title"])
+
+        steps = data.get("steps", [])
+        n = len(steps)
+        direction = data.get("direction", "horizontal")
+
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+        margin = Pt(60)
+        spacing = Pt(50)
+
+        if direction == "horizontal":
+            # --- 横方向配置 ---
+            box_w = (slide_w - margin*2 - spacing*(n-1)) / n
+            box_h = Pt(120)
+            top = slide_h/2 - box_h/2
+            left = margin
+
+            for i, text in enumerate(steps):
+                # ラウンドボックス
+                shape = s.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE,
+                    left, top, box_w, box_h
+                )
+                shape.fill.solid()
+                shape.fill.fore_color.rgb = self.colors["surface"]
+                shape.line.color.rgb = self.colors["primary"]
+
+                # ステップ番号（外に大きく重ねる）
+                num_box = s.shapes.add_textbox(left-20, top-60, box_w, Pt(50))
+                tf_num = num_box.text_frame
+                tf_num.text = str(i+1)
+                p_num = tf_num.paragraphs[0]
+                run_num = p_num.runs[0]
+                run_num.font.size = Pt(40)
+                run_num.font.bold = True
+                run_num.font.color.rgb = self.colors["accent"]
+                p_num.alignment = PP_ALIGN.LEFT
+
+                # 本文
+                tf = shape.text_frame
+                tf.text = text
+                p = tf.paragraphs[0]
+                run = p.runs[0]
+                run.font.size = Pt(18)
+                run.font.name = "BIZ UDPゴシック"
+                run.font.color.rgb = self.colors["text"]  
+                p.alignment = PP_ALIGN.CENTER
+
+                # 矢印（右向き）
+                if i < n-1:
+                    arrow = s.shapes.add_shape(
+                        MSO_SHAPE.RIGHT_ARROW,
+                        left+box_w+5, top+box_h/3, spacing-10, Pt(40)
+                    )
+                    arrow.fill.solid()
+                    arrow.fill.fore_color.rgb = self.colors["accent"]
+                    arrow.line.fill.background()
+
+                left += box_w + spacing
+
+        else:
+            # --- 縦方向配置 ---
+            box_w = slide_w * 0.7
+            box_h = (slide_h - margin*2 - spacing*(n-1)) / n
+            left = (slide_w - box_w) / 2
+            top = margin + Pt(40)
+
+            for i, text in enumerate(steps):
+                # ラウンドボックス
+                shape = s.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE,
+                    left, top, box_w, box_h
+                )
+                shape.fill.solid()
+                shape.fill.fore_color.rgb = self.colors["surface"]
+                shape.line.color.rgb = self.colors["primary"]
+
+                # ステップ番号（左外に大きく重ねる）
+                num_box = s.shapes.add_textbox(left-60, top, Pt(50), box_h)
+                tf_num = num_box.text_frame
+                tf_num.text = str(i+1)
+                p_num = tf_num.paragraphs[0]
+                run_num = p_num.runs[0]
+                run_num.font.size = Pt(40)
+                run_num.font.bold = True
+                run_num.font.color.rgb = self.colors["accent"]
+                p_num.alignment = PP_ALIGN.CENTER
+
+                # 本文
+                tf = shape.text_frame
+                tf.text = text
+                p = tf.paragraphs[0]
+                run = p.runs[0]
+                run.font.size = Pt(20)
+                run.font.name = "BIZ UDPゴシック"
+                run.font.color.rgb = self.colors["text"] 
+                p.alignment = PP_ALIGN.CENTER
+
+                # 矢印（下向き）
+                if i < n-1:
+                    arrow = s.shapes.add_shape(
+                        MSO_SHAPE.DOWN_ARROW,
+                        left+box_w/2-20, top+box_h+5, Pt(40), spacing-10
+                    )
+                    arrow.fill.solid()
+                    arrow.fill.fore_color.rgb = self.colors["accent"]
+                    arrow.line.fill.background()
+
+                top += box_h + spacing
     
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
@@ -857,6 +1150,10 @@ def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
         elif t=="progress"   : sf.add_progress(spec)
         elif t=="timeline"   : sf.add_timeline(spec)
         elif t=="image-auto" : sf.add_image_auto(spec)
+        elif t=="qa-question": sf.add_qa_question(spec)
+        elif t=="qa-answer"  : sf.add_qa_answer(spec)
+        elif t=="table"      : sf.add_table_slide(spec)
+        elif t=="flow"       : sf.add_flow_slide(spec)
     sf.save(out_path)
 
 # ---------------- CLI ----------------
