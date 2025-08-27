@@ -445,7 +445,7 @@ class SlideFactory:
         top = Cm(4)
 
         def add_box(x, title, items):
-            box = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, top, box_w, box_h)
+            box = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, top, box_w, box_h)
             box.fill.solid()
             box.fill.fore_color.rgb = self.colors["surface"]
             box.line.color.rgb = self.colors["ghost"]
@@ -656,10 +656,10 @@ class SlideFactory:
         slide_height = self.prs.slide_height
         margin = Pt(20)
 
-        # 画像サイズ読み取り
-        with Image.open(img["url"]) as im:
-            iw, ih = im.size
-            aspect = iw / ih
+        # self._load_image で画像読み込み（BytesIO, PIL.Image）
+        stream, im = self._load_image(img["url"])
+        iw, ih = im.size
+        aspect = iw / ih
 
         # 横長か縦長かでリサイズ基準を切替
         if aspect >= 1:  # 横長 → 横幅を中央まで広げる
@@ -676,7 +676,7 @@ class SlideFactory:
             top = (slide_height - height) / 2
 
         # 画像挿入
-        slide.shapes.add_picture(img["url"], left, top, width=width, height=height)
+        slide.shapes.add_picture(stream, left, top, width=width, height=height)
 
         # キャプションテキスト
         cap_left = slide_width / 2 + margin
@@ -704,14 +704,16 @@ class SlideFactory:
         max_h = (slide_h - margin*2 - spacing - title_height) / 2
         target_w = slide_w / 2 - margin * 2
 
-        # 画像を読み取り、リサイズ
+        # 画像サイズを読み取り、リサイズ結果を保存
         scaled_sizes = []
+        streams = []
         for img in images:
-            with Image.open(img["url"]) as im:
-                iw, ih = im.size
-                scale = min(max_h/ih, target_w/iw)  # 高さ基準 + 横幅制限
-                new_w, new_h = iw*scale, ih*scale
-                scaled_sizes.append((new_w, new_h))
+            stream, im = self._load_image(img["url"])
+            iw, ih = im.size
+            scale = min(max_h/ih, target_w/iw)  # 高さ基準 + 横幅制限
+            new_w, new_h = iw*scale, ih*scale
+            scaled_sizes.append((new_w, new_h))
+            streams.append(stream)
 
         # 上下サイズをそろえる（小さい方に合わせる）
         min_h = min(h for _, h in scaled_sizes)
@@ -722,12 +724,12 @@ class SlideFactory:
         top_start = (slide_h - total_h) / 2 + title_height/2
 
         shapes = []
-        for i, (img, (new_w, new_h)) in enumerate(zip(images, scaled_sizes)):
+        for i, ((new_w, new_h), stream, img) in enumerate(zip(scaled_sizes, streams, images)):
             top = top_start + i*(new_h + spacing)
             left = (slide_w/2 - new_w) / 2
 
             # 画像配置
-            pic = slide.shapes.add_picture(img["url"], left, top, width=int(new_w), height=int(new_h))
+            pic = slide.shapes.add_picture(stream, left, top, width=int(new_w), height=int(new_h))  
 
             # キャプションを画像の右に配置
             cap_box = slide.shapes.add_textbox(
@@ -742,42 +744,43 @@ class SlideFactory:
 
         return shapes
 
-    # --- 3枚: 横3グリッド + 下キャプション ---
+        # --- 3枚: 横3グリッド + 下キャプション ---
     def _add_image_three_grid(self, slide, images, font_size):
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
         margin = Pt(40)
         spacing = Pt(30)
-        max_width_ratio = 0.8
+        max_width_ratio = 0.8  # 横幅全体の80%に収める
 
-        # 全体幅の80%で均等割り
+        # 各画像の幅（等分）
         target_w = (slide_w * max_width_ratio - 2 * spacing) / 3
 
-        # スケールを各画像ごとに計算（幅基準）
         scaled_sizes = []
+        streams = []
         for img in images:
-            with Image.open(img["url"]) as im:
-                iw, ih = im.size
-                scale = target_w / iw
-                new_w, new_h = iw * scale, ih * scale
-                scaled_sizes.append((int(new_w), int(new_h)))
+            stream, im = self._load_image(img["url"])
+            iw, ih = im.size
+            scale = target_w / iw
+            new_w, new_h = iw * scale, ih * scale
+            scaled_sizes.append((int(new_w), int(new_h)))
+            streams.append(stream)
 
-        # 配置開始位置（中央寄せ）
+        # 横方向の開始位置（中央寄せ）
         total_w = sum(w for w, h in scaled_sizes) + 2 * spacing
         left_start = (slide_w - total_w) / 2
 
-        # 画像群のtop位置（画面中央の少し上）
+        # 最大高さを揃える（縦位置は上を揃える）
         img_max_h = max(h for w, h in scaled_sizes)
         top_img = (slide_h / 2) - img_max_h / 2 - Pt(20)
 
-        # キャプションのY座標は固定
+        # キャプションのY座標（全画像共通で揃える）
         cap_top = top_img + img_max_h + Pt(10)
 
         shapes = []
         x = left_start
-        for i, (img, (w, h)) in enumerate(zip(images, scaled_sizes)):
-            # 画像（縦の余白は出る）
-            pic = slide.shapes.add_picture(img["url"], x, top_img + (img_max_h - h), width=w, height=h)
-            shapes.append(pic)
+        for (w, h), stream, img in zip(scaled_sizes, streams, images):
+            # 画像（上を揃える。小さい画像は下に余白）
+            top = top_img + (img_max_h - h)
+            pic = slide.shapes.add_picture(stream, x, top, width=w, height=h)
 
             # キャプション（Y位置を固定）
             cap_box = slide.shapes.add_textbox(x, cap_top, w, Pt(40))
@@ -799,41 +802,48 @@ class SlideFactory:
         spacing = Pt(30)
         n = 4
 
-        # 横方向の基準幅を決定（スライド幅の80%を画像＋間隔で割る）
+        # 横方向の基準幅（スライド幅の90%に収める）
         max_total_w = slide_w * 0.9
         target_w = (max_total_w - spacing * (n - 1)) / n
 
         resized = []
+        streams = []
         for img in images:
-            with Image.open(img["url"]) as im:
-                iw, ih = im.size
+            stream, im = self._load_image(img["url"])
+            iw, ih = im.size
             scale = target_w / iw
             new_w, new_h = iw * scale, ih * scale
             resized.append((new_w, new_h, img))
+            streams.append(stream)
 
-        # 最大高さを取得（キャプションを合わせる基準）
+        # 最大高さを取得（キャプション基準にする）
         max_h = max(h for _, h, _ in resized)
 
-        # 配置開始位置（中央揃え）
+        # 横方向の開始位置（中央寄せ）
         total_w = sum(w for w, _, _ in resized) + spacing * (n - 1)
         left_base = (slide_w - total_w) / 2
-        top = slide_h * 0.35
+        top_img = slide_h * 0.35
 
-        # 配置ループ
+        shapes = []
         cur_left = left_base
-        for w, h, img in resized:
-            # 画像
-            pic = slide.shapes.add_picture(img["url"], cur_left, top, width=int(w), height=int(h))
+        for (w, h, img), stream in zip(resized, streams):
+            # 画像（下揃え）
+            pic_top = top_img + (max_h - h)
+            pic = slide.shapes.add_picture(stream, cur_left, pic_top, width=int(w), height=int(h))
 
-            # キャプション（横揃え、Yは max_h に合わせる）
-            cap_box = slide.shapes.add_textbox(cur_left, top + max_h + Pt(10), w, Pt(28))
+            # キャプション（全画像上揃え）
+            caption = img.get("caption", "")
+            cap_box = slide.shapes.add_textbox(cur_left, top_img + max_h + Pt(10), w, Pt(40))
             tf = cap_box.text_frame
             p = tf.paragraphs[0]
-            self._style_text(p, img.get("caption", ""), font_size - 2, self.colors["text"])
-            p.alignment = PP_ALIGN.CENTER
+            self._style_text(p, caption, font_size, color=self.colors["text"])
+            p.alignment = PP_ALIGN.LEFT
 
+            shapes.append((pic, cap_box))
             cur_left += w + spacing
 
+        return shapes
+    
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
     sf = SlideFactory()

@@ -5,7 +5,7 @@
       "subject": "情報処理基礎",
       "title": "サンプル講義",
       "date": "2025.08.25",
-      "image" : "sample1.png"
+      "image" : "https://images.unsplash.com/photo-1484406566174-9da000fda645?q=80&w=689&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
     },
     {
       "type": "section",
@@ -78,34 +78,34 @@
       "type": "image-auto",
       "title": "動物の特徴",
       "images": [
-        {"url": "sample1.png", "caption": "哺乳類の例"}
+        {"url": "https://images.unsplash.com/photo-1484406566174-9da000fda645?q=80&w=689&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "哺乳類の例"}
       ]
     },
     {
       "type": "image-auto",
       "title": "動物の比較",
       "images": [
-        {"url": "sample1.png", "caption": "鳥類：羽がある"},
-        {"url": "sample2.png", "caption": "哺乳類：毛がある"}
+        {"url": "https://images.unsplash.com/photo-1484406566174-9da000fda645?q=80&w=689&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "鳥類：羽がある"},
+        {"url": "https://images.unsplash.com/photo-1497752531616-c3afd9760a11?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "哺乳類：毛がある"}
       ]
     },
     {
       "type": "image-auto",
       "title": "生物の分類",
       "images": [
-        {"url": "sample1.png", "caption": "魚類"},
-        {"url": "sample2.png", "caption": "両生類"},
-        {"url": "sample3.png", "caption": "爬虫類"}
+        {"url": "https://images.unsplash.com/photo-1484406566174-9da000fda645?q=80&w=689&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "魚類"},
+        {"url": "https://images.unsplash.com/photo-1497752531616-c3afd9760a11?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "両生類"},
+        {"url": "https://images.unsplash.com/photo-1457140072488-87e5ffde2d77?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "爬虫類"}
       ]
     },
     {
       "type": "image-auto",
       "title": "哺乳類の例",
       "images": [
-        {"url": "sample1.png", "caption": "ネコ"},
-        {"url": "sample2.png", "caption": "イヌ"},
-        {"url": "sample3.png", "caption": "ウシ"},
-        {"url": "sample4.png", "caption": "ウマ"}
+        {"url": "https://images.unsplash.com/photo-1484406566174-9da000fda645?q=80&w=689&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "トナカイ"},
+        {"url": "https://images.unsplash.com/photo-1497752531616-c3afd9760a11?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "タヌキ"},
+        {"url": "https://images.unsplash.com/photo-1457140072488-87e5ffde2d77?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "クマ"},
+        {"url": "https://images.unsplash.com/photo-1456926631375-92c8ce872def?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", "caption": "ヒョウ"}
       ]
     },
     {

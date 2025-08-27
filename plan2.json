@@ -1,0 +1,96 @@
+{
+    "slides": [
+    {
+        "type": "title",
+        "subject": "教育DX",
+        "title": "生成AIの教育活用",
+        "date": "2025.08.27",
+        "image": "https://aisuite.jp/wp-content/uploads/2024/03/genai_cloud.jpg"
+    },
+    {
+        "type": "section",
+        "sectionNo": "01",
+        "title": "生成AIとは"
+    },
+    {
+        "type": "content",
+        "title": "基本的な理解",
+        "subhead": "先生向けの前提知識",
+        "points": [
+            "大量のデータから学習したAIが新しい文章や画像を生成",
+            "質問応答・翻訳・要約など幅広い応用が可能",
+            "従来の検索やICTツールと異なり“創造”ができる"
+        ],
+        "bodyText": "生成AIは、既存の情報を加工するだけでなく、新しい表現を作り出す技術です。教育現場では、教材作成や個別学習支援など、教員と学生双方に役立つ可能性があります。"
+    },
+    {
+        "type": "compare",
+        "title": "従来ICTと生成AIの違い",
+        "leftTitle": "従来ICT",
+        "leftItems": [
+            "検索エンジンで情報収集",
+            "教材は教員が準備",
+            "学習の自動化は限定的"
+        ],
+        "rightTitle": "生成AI",
+        "rightItems": [
+            "必要に応じて即時に文章生成",
+            "教材作成や問題演習を自動化",
+            "個別学習に柔軟に対応可能"
+        ],
+        "bodyText": "生成AIは従来のICTよりも学習支援の幅を広げ、教員の時間を創造的活動へと振り向けられます。"
+    },
+    {
+        "type": "image-auto",
+        "title": "教育と生成AIのイメージ",
+        "images": [
+            { "url": "https://www.oshieru.biz/plus/wp-content/uploads/2017/01/02.jpg", "caption": "先生が授業を行う場面" },
+            { "url": "https://p1-nec.static.pub/fes/cms/2023/11/22/77f9v9jsbqbmx4zxrijezr1n629491027112.jpg", "caption": "PCを使った学習" },
+            { "url": "https://aisuite.jp/wp-content/uploads/2024/03/genai_cloud.jpg", "caption": "生成AIの象徴的イメージ" }
+        ]
+    },
+    {
+        "type": "section",
+        "sectionNo": "02",
+        "title": "教育現場での活用例"
+    },
+    {
+        "type": "cards",
+        "title": "具体的な活用シーン",
+        "columns": 3,
+        "items": [
+            { "title": "教材作成支援", "desc": "教員の負担を軽減し、短時間で多様な教材を用意可能。" },
+            { "title": "学習者サポート", "desc": "質問応答や解説を自動生成し、個別最適化学習を支援。" },
+            { "title": "発想トレーニング", "desc": "アイデア出しや作文支援など、創造性を高める活動に活用。" }
+        ]
+    },
+    {
+        "type": "progress",
+        "title": "導入に向けた準備状況（例）",
+        "items": [
+            { "label": "基礎知識習得", "percent": 70 },
+            { "label": "授業での試行", "percent": 40 },
+            { "label": "カリキュラム反映", "percent": 20 }
+        ]
+    },
+    {
+        "type": "timeline",
+        "title": "今後のステップ",
+        "milestones": [
+            { "label": "基礎研修", "date": "2025/09" },
+            { "label": "授業での実験導入", "date": "2025/10" },
+            { "label": "学生アンケート", "date": "2025/11" },
+            { "label": "正式導入検討", "date": "2026/01" }
+        ]
+    },
+    {
+        "type": "content",
+        "title": "まとめと展望",
+        "points": [
+            "生成AIは先生の役割を奪うものではない",
+            "教育の質を高め、学習者主体の活動を促進",
+            "今後は活用指針と倫理面の整備が課題"
+        ],
+    "bodyText": "生成AIは教育現場に新しい可能性を開きます。専門学校においては、実践的な授業の補助や学生の創造力育成に役立つと考えられます。"
+    }
+]}
