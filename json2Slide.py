@@ -10,6 +10,7 @@ import json
 import sys
 import requests
 import io
+import math
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -235,9 +236,13 @@ class SlideFactory:
         self.prs.save(out_path)
 
     # ---------------- 内部ユーティリティ ----------------
-    def _new_slide(self):
+    def _new_slide(self, data: Dict[str, Any]):
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        # 背景
         self._apply_background(s)
+        # スライドノート
+        note_text = data.get("note", "")
+        s.notes_slide.notes_text_frame.text = note_text
         return s
 
     def _style_text(self, paragraph, text: str, size: Pt, bold=False,
@@ -331,7 +336,7 @@ class SlideFactory:
 
     # ---------------- スライド実装 ----------------
     def add_title(self, data: Dict[str, Any]):
-        s = self._new_slide()
+        s = self._new_slide(data)
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
         # 右側に画像を配置（オプション）
@@ -410,7 +415,7 @@ class SlideFactory:
         return s
 
     def add_section(self, data: Dict[str, Any]):
-        s = self._new_slide()
+        s = self._new_slide(data)
 
         # ゴースト番号
         g_rect = self.layout.get_rect("sectionSlide.ghostNum")
@@ -439,7 +444,7 @@ class SlideFactory:
         return s
 
     def add_content(self, data: Dict[str, Any]):
-        s = self._new_slide()
+        s = self._new_slide(data)
         self._add_slide_title(s, data.get("title",""))
 
         # Subhead
@@ -495,7 +500,7 @@ class SlideFactory:
     
     # 比較    
     def add_compare(self, data: Dict[str, Any]):
-        s = self._new_slide()
+        s = self._new_slide(data)
         self._add_slide_title(s, data.get("title","比較"))
 
         # ボックス配置
@@ -553,7 +558,7 @@ class SlideFactory:
         # --- Cards ---
     def add_cards(self, data: Dict[str, Any]):
         """カード形式スライド"""
-        s = self._new_slide()
+        s = self._new_slide(data)
         self._add_slide_title(s, data.get("title","一覧"))
 
         items = data.get("items", [])
@@ -596,7 +601,7 @@ class SlideFactory:
     # --- Progress ---
     def add_progress(self, data: Dict[str, Any]):
         """進捗バー"""
-        s = self._new_slide()
+        s = self._new_slide(data)
 
         self._add_slide_title(s, data.get("title","進捗状況"))
 
@@ -638,7 +643,7 @@ class SlideFactory:
     
     def add_timeline(self, data: Dict[str, Any]):
         """タイムライン"""
-        s = self._new_slide()
+        s = self._new_slide(data)
         self._add_slide_title(s, data.get("title",""))
 
         slide_height = self.prs.slide_height
@@ -693,7 +698,7 @@ class SlideFactory:
             return
 
         # スライド作成
-        slide = self._new_slide()
+        slide = self._new_slide(data)
 
         # 画像レイアウト分岐
         if n == 1:
@@ -899,7 +904,6 @@ class SlideFactory:
             caption = img.get("caption", "")
             cap_box = slide.shapes.add_textbox(cur_left, top_img + max_h + Pt(10), w, Pt(40))
             tf = cap_box.text_frame
-            tf.word.wrap = True
             p = tf.paragraphs[0]
             self._style_text(p, caption, font_size, color=self.colors["text"])
             p.alignment = PP_ALIGN.LEFT
@@ -911,7 +915,7 @@ class SlideFactory:
 
     # --- Q&A: Question ---
     def add_qa_question(self, data: Dict[str, Any]):
-        s = self._new_slide()
+        s = self._new_slide(data)
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
         # ゴースト "Ｑ"（全角、大きく左上）
@@ -948,7 +952,7 @@ class SlideFactory:
 
     # --- Q&A: Answer ---
     def add_qa_answer(self, data: Dict[str, Any]):
-        s = self._new_slide()
+        s = self._new_slide(data)
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
         # ゴースト "Ａ"（全角、大きく左上）
@@ -997,7 +1001,7 @@ class SlideFactory:
     
     # 表形式
     def add_table_slide(self, data: Dict[str, Any]):
-        s = self._new_slide()
+        s = self._new_slide(data)
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
         self._add_slide_title(s, data.get("title", "表"))
@@ -1080,7 +1084,7 @@ class SlideFactory:
     
     # 手順解説
     def add_flow_slide(self, data: Dict[str, Any]):
-        s = self._new_slide()
+        s = self._new_slide(data)
         self._add_slide_title(s, data["title"])
 
         steps = data.get("steps", [])
@@ -1110,12 +1114,12 @@ class SlideFactory:
                 shape.line.color.rgb = self.colors["primary"]
 
                 # 数字（左上に重ねる）
-                num_box = s.shapes.add_textbox(left-10, top-60, box_w, Pt(40))
+                num_box = s.shapes.add_textbox(left-Pt(20), top-Pt(40), Pt(40), Pt(40))
                 tf_num = num_box.text_frame
                 tf_num.text = str(i+1)
                 p_num = tf_num.paragraphs[0]
                 run_num = p_num.runs[0]
-                run_num.font.size = Pt(36)
+                run_num.font.size = Pt(55)
                 run_num.font.bold = True
                 run_num.font.color.rgb = self.colors["accent"]
                 p_num.alignment = PP_ALIGN.LEFT
@@ -1184,7 +1188,6 @@ class SlideFactory:
 
                 # 本文
                 tf = shape.text_frame
-                tf.word.wrap = True
                 tf.text = text
                 p = tf.paragraphs[0]
                 run = p.runs[0]
@@ -1197,7 +1200,7 @@ class SlideFactory:
                 if i < n-1:
                     arrow = s.shapes.add_shape(
                         MSO_SHAPE.DOWN_ARROW,
-                        left+box_w/2-20, top+box_h+5, Pt(40), spacing-10
+                        left + box_w / 2 - Pt(20), top+box_h+5, Pt(40), spacing-10
                     )
                     arrow.fill.solid()
                     arrow.fill.fore_color.rgb = self.colors["accent"]
@@ -1216,8 +1219,63 @@ class SlideFactory:
                 p = tf.paragraphs[0]
                 self._style_text(p, body, self.fonts["sizes"]["body"], color=self.colors["text"])
 
+    def add_highlight(self, data: Dict[str, Any]):
+        """
+        type: "highlight"
+        title: スライドタイトル
+        keyword: 強調するキーワードや公式
+        description: 下に配置する解説文
+        """
+        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        self._add_slide_title(s, data["title"])
 
-    
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+        keyword = data.get("keyword", "")
+        description = data.get("description", "")
+
+        # ---------------- キーワードボックス ----------------
+        font_size = 44
+        line_height = font_size * 1.4
+        max_chars_per_line = 14   # 1行あたりの想定文字数（日本語ベース）
+        n_lines = math.ceil(len(keyword) / max_chars_per_line)
+
+        box_w = slide_w * 0.7      # 幅は広め固定
+        box_h = Pt(line_height * n_lines + 60)  # 行数に応じて高さ調整
+        left = (slide_w - box_w) / 2
+        top = slide_h * 0.35
+
+        shape = s.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, left, top, box_w, box_h
+        )
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = self.colors["surface"]
+        shape.line.color.rgb = self.colors["accent"]
+
+        tf = shape.text_frame
+        tf.text = keyword
+        p = tf.paragraphs[0]
+        run = p.runs[0]
+        run.font.size = Pt(font_size)
+        run.font.name = "BIZ UDPゴシック"
+        run.font.bold = True
+        run.font.color.rgb = self.colors["primary"]
+        p.alignment = PP_ALIGN.CENTER
+
+        # ---------------- 解説文 ----------------
+        if description:
+            desc_top = top + box_h + Pt(30)
+            tbox = s.shapes.add_textbox(
+                Pt(60), desc_top, slide_w - Pt(120), Pt(120)
+            )
+            tf_desc = tbox.text_frame
+            tf_desc.word_wrap = True
+            tf_desc.text = description
+            p2 = tf_desc.paragraphs[0]
+            run2 = p2.runs[0]
+            run2.font.size = Pt(20)
+            run2.font.name = "BIZ UDPゴシック"
+            run2.font.color.rgb = self.colors["text"]
+            p2.alignment = PP_ALIGN.CENTER    
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
     sf = SlideFactory(plan)   # plan を渡すように変更
@@ -1235,6 +1293,7 @@ def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
         elif t=="qa-answer"  : sf.add_qa_answer(spec)
         elif t=="table"      : sf.add_table_slide(spec)
         elif t=="flow"       : sf.add_flow_slide(spec)
+        elif t=="highlight"  : sf.add_highlight(spec)
     sf.save(out_path)
 
 # ---------------- CLI ----------------

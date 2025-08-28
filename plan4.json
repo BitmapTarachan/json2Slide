@@ -209,7 +209,7 @@
         {
             "type": "flow",
             "title": "学習ステップ",
-            "direction": "horizontal",  
+            "direction": "vertical",  
             "steps": [
                 "基礎を理解する",
                 "例題を解く",
