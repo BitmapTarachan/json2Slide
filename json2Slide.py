@@ -99,6 +99,45 @@ CONFIG = {
     }
 }
 
+THEMES = {
+    "Default": {
+        "primary"    : RGBColor(0x42, 0x85, 0xF4),  # Googleブルー
+        "accent"     : RGBColor(0xFB, 0xBC, 0x04),  # 黄色
+        "background" : RGBColor(0xFF, 0xFF, 0xFF),
+        "surface"    : RGBColor(0xF8, 0xF9, 0xFA),
+        "text"       : RGBColor(0x33, 0x33, 0x33),
+        "subtext"    : RGBColor(0x9E, 0x9E, 0x9E),
+        "ghost"      : RGBColor(0xEF, 0xEF, 0xED),
+    },
+    "Nature": {
+        "primary"    : RGBColor(0x2E, 0x7D, 0x32),  # 深緑
+        "accent"     : RGBColor(0xFF, 0xA0, 0x00),  # オレンジ
+        "background" : RGBColor(0xFF, 0xFF, 0xF5),
+        "surface"    : RGBColor(0xE8, 0xF5, 0xE9),
+        "text"       : RGBColor(0x1B, 0x5E, 0x20),
+        "subtext"    : RGBColor(0x6D, 0x6D, 0x6D),
+        "ghost"      : RGBColor(0xC8, 0xE6, 0xC9),
+    },
+    "Dark": {
+        "primary"    : RGBColor(0xBB, 0x86, 0xFC),  # 紫
+        "accent"     : RGBColor(0x03, 0xDA, 0xC6),  # シアン
+        "background" : RGBColor(0x12, 0x12, 0x12),
+        "surface"    : RGBColor(0x1E, 0x1E, 0x1E),
+        "text"       : RGBColor(0xEE, 0xEE, 0xEE),
+        "subtext"    : RGBColor(0xAA, 0xAA, 0xAA),
+        "ghost"      : RGBColor(0x33, 0x33, 0x33),
+    },
+    "Monochrome": {
+        "primary"    : RGBColor(0x00, 0x00, 0x00),
+        "accent"     : RGBColor(0x55, 0x55, 0x55),
+        "background" : RGBColor(0xFF, 0xFF, 0xFF),
+        "surface"    : RGBColor(0xF0, 0xF0, 0xF0),
+        "text"       : RGBColor(0x00, 0x00, 0x00),
+        "subtext"    : RGBColor(0x77, 0x77, 0x77),
+        "ghost"      : RGBColor(0xDD, 0xDD, 0xDD),
+    }
+}
+
 # ---------------- Layout Manager ----------------
 class LayoutManager:
     def __init__(self, config):
@@ -172,10 +211,18 @@ def ensure_list(x) -> List[Any]:
 
 # ---------------- Slide Factory ----------------
 class SlideFactory:
-    def __init__(self, config=CONFIG):
-        
+    def __init__(self, plan: Dict[str, Any], config=CONFIG):
+        # カラーテーマ選択
+        theme_name = plan.get("color-theme", "Default")
+
+        if theme_name == "Custom" and "colors" in plan:
+            self.colors = {
+                k: hex_to_rgbcolor(v) for k, v in plan["colors"].items()
+            }
+        else:
+            self.colors = THEMES.get(theme_name, THEMES["Default"])
+
         self.config = config
-        self.colors = config["COLORS"]
         self.fonts = config["FONTS"]
         self.layout = LayoutManager(config)
         self.prs = Presentation()
@@ -188,6 +235,11 @@ class SlideFactory:
         self.prs.save(out_path)
 
     # ---------------- 内部ユーティリティ ----------------
+    def _new_slide(self):
+        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        self._apply_background(s)
+        return s
+
     def _style_text(self, paragraph, text: str, size: Pt, bold=False,
                     italic=False, color=None, align=None):
         """統一的にフォントスタイルを適用"""
@@ -254,7 +306,6 @@ class SlideFactory:
         slide.shapes[-1].line.fill.background()  # 枠線なし
         slide.shapes[-1].shadow.inherit = False  # 影を消す（フラット）
 
-
         # --- タイトルテキスト ---
         tbox = slide.shapes.add_textbox(
             left + bar_width + bar_margin, top,
@@ -272,9 +323,15 @@ class SlideFactory:
         tp.alignment = PP_ALIGN.LEFT
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
 
+    def _apply_background(self, slide):
+        fill = slide.background.fill
+        fill.solid()
+        fill.fore_color.rgb = self.colors["background"]
+
+
     # ---------------- スライド実装 ----------------
     def add_title(self, data: Dict[str, Any]):
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
         # 右側に画像を配置（オプション）
@@ -353,7 +410,7 @@ class SlideFactory:
         return s
 
     def add_section(self, data: Dict[str, Any]):
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
 
         # ゴースト番号
         g_rect = self.layout.get_rect("sectionSlide.ghostNum")
@@ -382,7 +439,7 @@ class SlideFactory:
         return s
 
     def add_content(self, data: Dict[str, Any]):
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
         self._add_slide_title(s, data.get("title",""))
 
         # Subhead
@@ -438,7 +495,7 @@ class SlideFactory:
     
     # 比較    
     def add_compare(self, data: Dict[str, Any]):
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
         self._add_slide_title(s, data.get("title","比較"))
 
         # ボックス配置
@@ -496,7 +553,7 @@ class SlideFactory:
         # --- Cards ---
     def add_cards(self, data: Dict[str, Any]):
         """カード形式スライド"""
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
         self._add_slide_title(s, data.get("title","一覧"))
 
         items = data.get("items", [])
@@ -539,7 +596,8 @@ class SlideFactory:
     # --- Progress ---
     def add_progress(self, data: Dict[str, Any]):
         """進捗バー"""
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
+
         self._add_slide_title(s, data.get("title","進捗状況"))
 
         items = data.get("items", [])
@@ -580,7 +638,7 @@ class SlideFactory:
     
     def add_timeline(self, data: Dict[str, Any]):
         """タイムライン"""
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
         self._add_slide_title(s, data.get("title",""))
 
         slide_height = self.prs.slide_height
@@ -635,8 +693,7 @@ class SlideFactory:
             return
 
         # スライド作成
-        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
-        self._add_slide_title(slide, data.get("title",""))
+        slide = self._new_slide()
 
         # 画像レイアウト分岐
         if n == 1:
@@ -691,6 +748,7 @@ class SlideFactory:
         txBox = slide.shapes.add_textbox(cap_left, cap_top, cap_width, cap_height)
         tf = txBox.text_frame
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = caption
         p.alignment = PP_ALIGN.LEFT
@@ -740,6 +798,7 @@ class SlideFactory:
                 left+new_w+Pt(20), top, slide_w/2 - new_w - Pt(40), new_h
             )
             tf = cap_box.text_frame
+            tf.word.wrap = True
             p = tf.paragraphs[0]
             self._style_text(p, img.get("caption",""), font_size, self.colors["text"])
             p.alignment = PP_ALIGN.LEFT
@@ -789,6 +848,7 @@ class SlideFactory:
             # キャプション（Y位置を固定）
             cap_box = slide.shapes.add_textbox(x, cap_top, w, Pt(40))
             tf = cap_box.text_frame
+            tf.word.wrap = True
             p = tf.paragraphs[0]
             self._style_text(p, img.get("caption", ""), font_size, self.colors["text"])
             p.alignment = PP_ALIGN.LEFT
@@ -839,6 +899,7 @@ class SlideFactory:
             caption = img.get("caption", "")
             cap_box = slide.shapes.add_textbox(cur_left, top_img + max_h + Pt(10), w, Pt(40))
             tf = cap_box.text_frame
+            tf.word.wrap = True
             p = tf.paragraphs[0]
             self._style_text(p, caption, font_size, color=self.colors["text"])
             p.alignment = PP_ALIGN.LEFT
@@ -850,7 +911,7 @@ class SlideFactory:
 
     # --- Q&A: Question ---
     def add_qa_question(self, data: Dict[str, Any]):
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
         # ゴースト "Ｑ"（全角、大きく左上）
@@ -887,7 +948,7 @@ class SlideFactory:
 
     # --- Q&A: Answer ---
     def add_qa_answer(self, data: Dict[str, Any]):
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
+        s = self._new_slide()
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
         # ゴースト "Ａ"（全角、大きく左上）
@@ -936,7 +997,7 @@ class SlideFactory:
     
     # 表形式
     def add_table_slide(self, data: Dict[str, Any]):
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        s = self._new_slide()
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
         self._add_slide_title(s, data.get("title", "表"))
@@ -993,6 +1054,9 @@ class SlideFactory:
                 if i % 2 == 0:
                     cell.fill.solid()
                     cell.fill.fore_color.rgb = self.colors["surface"]
+                else:
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = self.colors["background"]
 
         # bodyText（高さが溢れないように制限）
         body_text = data.get("bodyText")
@@ -1016,7 +1080,7 @@ class SlideFactory:
     
     # 手順解説
     def add_flow_slide(self, data: Dict[str, Any]):
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        s = self._new_slide()
         self._add_slide_title(s, data["title"])
 
         steps = data.get("steps", [])
@@ -1046,7 +1110,7 @@ class SlideFactory:
                 shape.line.color.rgb = self.colors["primary"]
 
                 # 数字（左上に重ねる）
-                num_box = s.shapes.add_textbox(left-10, top-40, box_w, Pt(40))
+                num_box = s.shapes.add_textbox(left-10, top-60, box_w, Pt(40))
                 tf_num = num_box.text_frame
                 tf_num.text = str(i+1)
                 p_num = tf_num.paragraphs[0]
@@ -1120,6 +1184,7 @@ class SlideFactory:
 
                 # 本文
                 tf = shape.text_frame
+                tf.word.wrap = True
                 tf.text = text
                 p = tf.paragraphs[0]
                 run = p.runs[0]
@@ -1155,7 +1220,7 @@ class SlideFactory:
     
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
-    sf = SlideFactory()
+    sf = SlideFactory(plan)   # plan を渡すように変更
     for spec in plan.get("slides", []):
         t = spec.get("type")
         if t=="title"        : sf.add_title(spec)

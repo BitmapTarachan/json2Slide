@@ -1,14 +1,5 @@
 {
-  "color-theme": "Custom",
-  "colors": {
-    "primary": "#0066CC",
-    "accent": "#FF9900",
-    "background": "#FFFFFF",
-    "surface": "#F5F5F5",
-    "text": "#222222",
-    "subtext": "#888888",
-    "ghost": "#DDDDDD"
-  },
+  "color-theme": "Nature",
   "slides": [
     {
       "type": "qa-question",
