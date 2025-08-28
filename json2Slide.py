@@ -150,7 +150,6 @@ def set_text_frame_bullets(tf, lines: List[str], level: int = 0):
         set_paragraph_style(p, line, BODY_FONT_SIZE)
         p.level = level
 
-
 def add_speaker_notes(slide, notes: Optional[str]):
     if not notes:
         return
@@ -160,6 +159,10 @@ def add_speaker_notes(slide, notes: Optional[str]):
     p = tf.paragraphs[0]
     set_paragraph_style(p, notes, Pt(14))
 
+def hex_to_rgbcolor(hex_str: str) -> RGBColor:
+    hex_str = hex_str.lstrip("#")
+    r, g, b = int(hex_str[0:2], 16), int(hex_str[2:4], 16), int(hex_str[4:6], 16)
+    return RGBColor(r, g, b)
 
 def ensure_list(x) -> List[Any]:
     if x is None:
@@ -170,6 +173,7 @@ def ensure_list(x) -> List[Any]:
 # ---------------- Slide Factory ----------------
 class SlideFactory:
     def __init__(self, config=CONFIG):
+        
         self.config = config
         self.colors = config["COLORS"]
         self.fonts = config["FONTS"]
@@ -1012,24 +1016,11 @@ class SlideFactory:
     
     # 手順解説
     def add_flow_slide(self, data: Dict[str, Any]):
-        """
-        data = {
-            "type": "flow",
-            "title": "学習ステップ",
-            "direction": "horizontal",  # "vertical" も選択可能
-            "steps": [
-                "基礎を理解する",
-                "例題を解く",
-                "応用問題に挑戦",
-                "テストで確認",
-                "フィードバック"
-            ]
-        }
-        """
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         self._add_slide_title(s, data["title"])
 
         steps = data.get("steps", [])
+        body = data.get("bodyText", "")
         n = len(steps)
         direction = data.get("direction", "horizontal")
 
@@ -1038,7 +1029,7 @@ class SlideFactory:
         spacing = Pt(50)
 
         if direction == "horizontal":
-            # --- 横方向配置 ---
+            # 横フロー
             box_w = (slide_w - margin*2 - spacing*(n-1)) / n
             box_h = Pt(120)
             top = slide_h/2 - box_h/2
@@ -1054,13 +1045,13 @@ class SlideFactory:
                 shape.fill.fore_color.rgb = self.colors["surface"]
                 shape.line.color.rgb = self.colors["primary"]
 
-                # ステップ番号（外に大きく重ねる）
-                num_box = s.shapes.add_textbox(left-20, top-60, box_w, Pt(50))
+                # 数字（左上に重ねる）
+                num_box = s.shapes.add_textbox(left-10, top-40, box_w, Pt(40))
                 tf_num = num_box.text_frame
                 tf_num.text = str(i+1)
                 p_num = tf_num.paragraphs[0]
                 run_num = p_num.runs[0]
-                run_num.font.size = Pt(40)
+                run_num.font.size = Pt(36)
                 run_num.font.bold = True
                 run_num.font.color.rgb = self.colors["accent"]
                 p_num.alignment = PP_ALIGN.LEFT
@@ -1070,12 +1061,12 @@ class SlideFactory:
                 tf.text = text
                 p = tf.paragraphs[0]
                 run = p.runs[0]
-                run.font.size = Pt(18)
+                run.font.size = Pt(20)
                 run.font.name = "BIZ UDPゴシック"
                 run.font.color.rgb = self.colors["text"]  
                 p.alignment = PP_ALIGN.CENTER
 
-                # 矢印（右向き）
+                # 矢印
                 if i < n-1:
                     arrow = s.shapes.add_shape(
                         MSO_SHAPE.RIGHT_ARROW,
@@ -1087,11 +1078,23 @@ class SlideFactory:
 
                 left += box_w + spacing
 
+            # BodyText（下）
+            if body:
+                tbox = s.shapes.add_textbox(
+                    Pt(60), top+box_h+spacing, slide_w-Pt(120), Pt(100)
+                )
+                tf = tbox.text_frame
+                tf.word_wrap = True
+                p = tf.paragraphs[0]
+                self._style_text(p, body, self.fonts["sizes"]["body"], color=self.colors["text"])
+
         else:
-            # --- 縦方向配置 ---
-            box_w = slide_w * 0.7
+            # 縦フロー（左寄せ）
+            flow_area_w = slide_w * 0.55   # 左2/3
+            body_area_left = slide_w * 0.65
+            box_w = flow_area_w * 0.9      # さらに少し狭く
             box_h = (slide_h - margin*2 - spacing*(n-1)) / n
-            left = (slide_w - box_w) / 2
+            left = margin + Pt(40)
             top = margin + Pt(40)
 
             for i, text in enumerate(steps):
@@ -1104,13 +1107,13 @@ class SlideFactory:
                 shape.fill.fore_color.rgb = self.colors["surface"]
                 shape.line.color.rgb = self.colors["primary"]
 
-                # ステップ番号（左外に大きく重ねる）
-                num_box = s.shapes.add_textbox(left-60, top, Pt(50), box_h)
+                # 数字（ボックスの左外）
+                num_box = s.shapes.add_textbox(left-Pt(60), top, Pt(50), box_h)
                 tf_num = num_box.text_frame
                 tf_num.text = str(i+1)
                 p_num = tf_num.paragraphs[0]
                 run_num = p_num.runs[0]
-                run_num.font.size = Pt(40)
+                run_num.font.size = Pt(36)
                 run_num.font.bold = True
                 run_num.font.color.rgb = self.colors["accent"]
                 p_num.alignment = PP_ALIGN.CENTER
@@ -1136,6 +1139,19 @@ class SlideFactory:
                     arrow.line.fill.background()
 
                 top += box_h + spacing
+
+            # BodyText（右1/3）
+            if body:
+                body_box = s.shapes.add_textbox(
+                    body_area_left, margin + Pt(40), slide_w - body_area_left - Pt(40),
+                    slide_h - margin*2
+                )
+                tf = body_box.text_frame
+                tf.word_wrap = True
+                p = tf.paragraphs[0]
+                self._style_text(p, body, self.fonts["sizes"]["body"], color=self.colors["text"])
+
+
     
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):

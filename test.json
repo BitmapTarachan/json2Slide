@@ -1,4 +1,14 @@
 {
+  "color-theme": "Custom",
+  "colors": {
+    "primary": "#0066CC",
+    "accent": "#FF9900",
+    "background": "#FFFFFF",
+    "surface": "#F5F5F5",
+    "text": "#222222",
+    "subtext": "#888888",
+    "ghost": "#DDDDDD"
+  },
   "slides": [
     {
       "type": "qa-question",
@@ -29,14 +39,15 @@
     {
         "type": "flow",
         "title": "学習ステップ",
-        "direction": "vertical",  
+        "direction": "horizontal",  
         "steps": [
             "基礎を理解する",
             "例題を解く",
             "応用問題に挑戦",
             "テストで確認",
             "フィードバック"
-        ]
+        ],
+        "bodyText":"この学習ステップをしっかりキープして実力を高めていきましょう。"
     }
   ]
 }
