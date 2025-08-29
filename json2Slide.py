@@ -12,6 +12,7 @@ import requests
 import io
 import math
 
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -25,6 +26,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Cm
 from pptx.enum.text import MSO_ANCHOR
+from pptx.oxml.xmlchemy import OxmlElement
 
 from PIL import Image
 
@@ -213,7 +215,10 @@ def ensure_list(x) -> List[Any]:
 # ---------------- Slide Factory ----------------
 class SlideFactory:
     def __init__(self, plan: Dict[str, Any], config=CONFIG):
-        # カラーテーマ選択
+        # イメージキャッシュ
+        self._image_cache = {}
+
+        # カラーテーマ選択S
         theme_name = plan.get("color-theme", "Default")
 
         if theme_name == "Custom" and "colors" in plan:
@@ -230,16 +235,21 @@ class SlideFactory:
         # 16:9 に固定
         self.prs.slide_width = self.layout.page_w
         self.prs.slide_height = self.layout.page_h
+        
+        # 全体背景
+        self._global_bg = None
+        if plan.get("background-image"):
+            self._global_bg, _ = self._load_image(plan["background-image"])
 
     def save(self, out_path: str):
         Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         self.prs.save(out_path)
 
     # ---------------- 内部ユーティリティ ----------------
-    def _new_slide(self, data: Dict[str, Any]):
+    def _new_slide(self, data: Dict[str, Any],apply_background = True):
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         # 背景
-        self._apply_background(s)
+        self._apply_background(s,data,apply_background)
         # スライドノート
         note_text = data.get("note", "")
         s.notes_slide.notes_text_frame.text = note_text
@@ -259,35 +269,35 @@ class SlideFactory:
             paragraph.alignment = align
 
     def _load_image(self, path_or_url: str):
-        """
-        ローカルファイル or URL から画像を読み込み、
-        pptx.add_picture 用の BytesIO と PIL.Image を返す。
-        """
-        image_stream = None
+        try:
+            # キャッシュヒット
+            if path_or_url in self._image_cache:
+                # BytesIOは再利用のため毎回seek(0)して返す
+                stream, im = self._image_cache[path_or_url]
+                stream.seek(0)
+                return stream, im
 
-        # URLの場合
-        if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-            try:
+            # URLから取得
+            if path_or_url.startswith(("http://", "https://")):
                 response = requests.get(path_or_url, timeout=10)
                 response.raise_for_status()
-                image_stream = io.BytesIO(response.content)
-            except Exception as e:
-                raise RuntimeError(f"URLから画像取得に失敗しました: {path_or_url} ({e})")
-        else:
-            # ローカルファイル
-            try:
+                stream = io.BytesIO(response.content)
+            else:
+                # ローカルファイル
                 with open(path_or_url, "rb") as f:
-                    image_stream = io.BytesIO(f.read())
-            except Exception as e:
-                raise RuntimeError(f"ローカル画像を開けません: {path_or_url} ({e})")
+                    stream = io.BytesIO(f.read())
 
-        # サイズ取得用にPILで開く
-        image = Image.open(image_stream)
-        image.load()  # Lazy読み込みを強制
-        image_stream.seek(0)  # pptxで使う前にポインタを戻す
+            # PILでロードしてキャッシュ
+            im = Image.open(stream)
+            im.load()           # Lazy読み込みを強制
+            stream.seek(0)      # 再利用に備えて戻す
+            self._image_cache[path_or_url] = (stream, im)
 
-        return image_stream, image
-
+            return stream, im
+        except Exception as e:
+            print(f"[WARN] 画像を読み込めませんでした: {path_or_url} ({e})")
+            return None, None
+    
     def _add_slide_title(self, slide, title: str):
         """
         スライドタイトルを描画する共通関数
@@ -328,11 +338,36 @@ class SlideFactory:
         tp.alignment = PP_ALIGN.LEFT
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
 
-    def _apply_background(self, slide):
-        fill = slide.background.fill
-        fill.solid()
-        fill.fore_color.rgb = self.colors["background"]
-
+    def _apply_background(self, slide, slide_data: dict = None,apply_background = True):
+        bg_url = None
+        if slide_data and "background-image" in slide_data:
+            bg_url = slide_data["background-image"]
+            stream, _ = self._load_image(bg_url)
+            if stream and _:
+                slide.shapes.add_picture(stream, 0, 0,
+                                        width=self.prs.slide_width,
+                                        height=self.prs.slide_height)
+        elif apply_background and self._global_bg:
+            if self._global_bg :
+                slide.shapes.add_picture(self._global_bg, 0, 0,
+                                        width=self.prs.slide_width,
+                                        height=self.prs.slide_height)
+        else:
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = self.colors["background"]    
+            
+    def _set_shape_transparency(self, shape, alpha_val: int):
+        """
+        shape.fill に alpha 要素を追加して透過を指定（alpha_val は 0〜100000）
+        例: 40000 = 40% 透過
+        """
+        from pptx.oxml.xmlchemy import OxmlElement
+        ts = shape.fill._xPr.solidFill
+        sF = ts.get_or_change_to_srgbClr()
+        alpha_elem = OxmlElement('a:alpha')
+        alpha_elem.set('val', str(alpha_val))
+        sF.append(alpha_elem)
 
     # ---------------- スライド実装 ----------------
     def add_title(self, data: Dict[str, Any]):
@@ -342,19 +377,20 @@ class SlideFactory:
         # 右側に画像を配置（オプション）
         if "image" in data and data["image"]:
             stream, im = self._load_image(data["image"])
-            iw, ih = im.size
-            slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+            if stream and im:
+                iw, ih = im.size
+                slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
 
-            # 縦に合わせる（はみ出さないように調整）
-            scale = slide_h / ih
-            new_w, new_h = iw * scale, ih * scale
+                # 縦に合わせる（はみ出さないように調整）
+                scale = slide_h / ih
+                new_w, new_h = iw * scale, ih * scale
 
-            left = int(slide_w * 3/5)
-            top = 0
-            if left + new_w < slide_w:  # 幅足りないなら右寄せ
-                left = slide_w - new_w
+                left = int(slide_w * 3/5)
+                top = 0
+                if left + new_w < slide_w:  # 幅足りないなら右寄せ
+                    left = slide_w - new_w
 
-            s.shapes.add_picture(stream, left, top, width=int(new_w), height=int(new_h))
+                s.shapes.add_picture(stream, left, top, width=int(new_w), height=int(new_h))
 
         # 左側の縦線（Ghostカラー）
         line_left = Pt(50)  # 余白を少し空ける
@@ -724,25 +760,26 @@ class SlideFactory:
 
         # self._load_image で画像読み込み（BytesIO, PIL.Image）
         stream, im = self._load_image(img["url"])
-        iw, ih = im.size
-        aspect = iw / ih
+        if stream :
+            iw, ih = im.size
+            aspect = iw / ih
 
-        # 横長か縦長かでリサイズ基準を切替
-        if aspect >= 1:  # 横長 → 横幅を中央まで広げる
-            max_width = slide_width / 2 - 2 * margin
-            width = max_width
-            height = width / aspect
-            left = margin
-            top = (slide_height - height) / 2
-        else:  # 縦長 → 上下いっぱいまで
-            max_height = slide_height - 2 * margin
-            height = max_height
-            width = height * aspect
-            left = margin
-            top = (slide_height - height) / 2
+            # 横長か縦長かでリサイズ基準を切替
+            if aspect >= 1:  # 横長 → 横幅を中央まで広げる
+                max_width = slide_width / 2 - 2 * margin
+                width = max_width
+                height = width / aspect
+                left = margin
+                top = (slide_height - height) / 2
+            else:  # 縦長 → 上下いっぱいまで
+                max_height = slide_height - 2 * margin
+                height = max_height
+                width = height * aspect
+                left = margin
+                top = (slide_height - height) / 2
 
-        # 画像挿入
-        slide.shapes.add_picture(stream, left, top, width=width, height=height)
+            # 画像挿入
+            slide.shapes.add_picture(stream, left, top, width=width, height=height)
 
         # キャプションテキスト
         cap_left = slide_width / 2 + margin
@@ -776,11 +813,12 @@ class SlideFactory:
         streams = []
         for img in images:
             stream, im = self._load_image(img["url"])
-            iw, ih = im.size
-            scale = min(max_h/ih, target_w/iw)  # 高さ基準 + 横幅制限
-            new_w, new_h = iw*scale, ih*scale
-            scaled_sizes.append((new_w, new_h))
-            streams.append(stream)
+            if stream:
+                iw, ih = im.size
+                scale = min(max_h/ih, target_w/iw)  # 高さ基準 + 横幅制限
+                new_w, new_h = iw*scale, ih*scale
+                scaled_sizes.append((new_w, new_h))
+                streams.append(stream)
 
         # 上下サイズをそろえる（小さい方に合わせる）
         min_h = min(h for _, h in scaled_sizes)
@@ -796,7 +834,8 @@ class SlideFactory:
             left = (slide_w/2 - new_w) / 2
 
             # 画像配置
-            pic = slide.shapes.add_picture(stream, left, top, width=int(new_w), height=int(new_h))  
+            if stream:
+                pic = slide.shapes.add_picture(stream, left, top, width=int(new_w), height=int(new_h))  
 
             # キャプションを画像の右に配置
             cap_box = slide.shapes.add_textbox(
@@ -826,11 +865,12 @@ class SlideFactory:
         streams = []
         for img in images:
             stream, im = self._load_image(img["url"])
-            iw, ih = im.size
-            scale = target_w / iw
-            new_w, new_h = iw * scale, ih * scale
-            scaled_sizes.append((int(new_w), int(new_h)))
-            streams.append(stream)
+            if stream :
+                iw, ih = im.size
+                scale = target_w / iw
+                new_w, new_h = iw * scale, ih * scale
+                scaled_sizes.append((int(new_w), int(new_h)))
+                streams.append(stream)
 
         # 横方向の開始位置（中央寄せ）
         total_w = sum(w for w, h in scaled_sizes) + 2 * spacing
@@ -848,7 +888,8 @@ class SlideFactory:
         for (w, h), stream, img in zip(scaled_sizes, streams, images):
             # 画像（上を揃える。小さい画像は下に余白）
             top = top_img + (img_max_h - h)
-            pic = slide.shapes.add_picture(stream, x, top, width=w, height=h)
+            if stream:
+                slide.shapes.add_picture(stream, x, top, width=w, height=h)
 
             # キャプション（Y位置を固定）
             cap_box = slide.shapes.add_textbox(x, cap_top, w, Pt(40))
@@ -877,13 +918,15 @@ class SlideFactory:
 
         resized = []
         streams = []
+
         for img in images:
             stream, im = self._load_image(img["url"])
-            iw, ih = im.size
-            scale = target_w / iw
-            new_w, new_h = iw * scale, ih * scale
-            resized.append((new_w, new_h, img))
-            streams.append(stream)
+            if stream:
+                iw, ih = im.size
+                scale = target_w / iw
+                new_w, new_h = iw * scale, ih * scale
+                resized.append((new_w, new_h, img))
+                streams.append(stream)
 
         # 最大高さを取得（キャプション基準にする）
         max_h = max(h for _, h, _ in resized)
@@ -898,7 +941,8 @@ class SlideFactory:
         for (w, h, img), stream in zip(resized, streams):
             # 画像（下揃え）
             pic_top = top_img + (max_h - h)
-            pic = slide.shapes.add_picture(stream, cur_left, pic_top, width=int(w), height=int(h))
+            if stream: 
+                pic = slide.shapes.add_picture(stream, cur_left, pic_top, width=int(w), height=int(h))
 
             # キャプション（全画像上揃え）
             caption = img.get("caption", "")
@@ -908,7 +952,9 @@ class SlideFactory:
             self._style_text(p, caption, font_size, color=self.colors["text"])
             p.alignment = PP_ALIGN.LEFT
 
-            shapes.append((pic, cap_box))
+            if stream:
+                shapes.append((pic, cap_box))
+
             cur_left += w + spacing
 
         return shapes
@@ -1226,7 +1272,8 @@ class SlideFactory:
         keyword: 強調するキーワードや公式
         description: 下に配置する解説文
         """
-        s = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+        s = self._new_slide(data)
+
         self._add_slide_title(s, data["title"])
 
         slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
@@ -1276,6 +1323,160 @@ class SlideFactory:
             run2.font.name = "BIZ UDPゴシック"
             run2.font.color.rgb = self.colors["text"]
             p2.alignment = PP_ALIGN.CENTER    
+
+    def add_hero(self, data: dict):
+        s = self._new_slide(data)
+
+        # スライドサイズ
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+
+        # 背景画像（あれば適用）
+        bg_url = data.get("background-image")
+        if bg_url:
+            stream, _ = self._load_image(bg_url)
+            if stream:
+                s.shapes.add_picture(stream, 0, 0, width=slide_w, height=slide_h)
+        else:
+            # 背景色だけ
+            fill = s.background.fill
+            fill.solid()
+            fill.fore_color.rgb = self.colors["background"]
+
+        # --- 半透明オーバーレイ ---
+        overlay = s.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, 0, 0, slide_w, slide_h
+        )
+        overlay.fill.solid()
+        overlay.fill.fore_color.rgb = RGBColor(0, 0, 0)  # 黒
+        overlay.fill.fore_color.transparency = 0.5              # 30%透過
+        overlay.line.fill.background()                   # 枠線なし
+        self._set_shape_transparency(overlay, 40000)  # 40%ほど透過
+
+        # --- タイトル（中央配置） ---
+        tbox = s.shapes.add_textbox(0, slide_h*0.35, slide_w, slide_h*0.2)
+        tf = tbox.text_frame
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tp = tf.paragraphs[0]
+        self._style_text(
+            tp,
+            data.get("title", ""),
+            self.fonts["sizes"]["title"],
+            bold=True,
+            color=RGBColor(255, 255, 255),
+            align=PP_ALIGN.CENTER
+        )
+
+        # --- 仕切り線 ---
+        line_top = slide_h * 0.51
+        line_left = slide_w * 0.1
+        line_width = slide_w * 0.8
+        shape = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, line_left, line_top, line_width, Pt(1))
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = RGBColor(255, 255, 255)
+        shape.line.fill.background()
+
+        # --- サブタイトル（タイトルのすぐ下） ---
+        subtitle = data.get("subtitle")
+        if subtitle:
+            stbox = s.shapes.add_textbox(0, line_top + Pt(10), slide_w, slide_h*0.15)
+            stf = stbox.text_frame
+            stf.vertical_anchor = MSO_ANCHOR.TOP
+            sp = stf.paragraphs[0]
+            self._style_text(
+                sp,
+                subtitle,
+                self.fonts["sizes"]["subhead"],
+                color=RGBColor(230, 230, 230),
+                align=PP_ALIGN.CENTER
+            )
+
+        return s
+    
+    def add_quote(self, data: dict):
+        s = self._new_slide(data,False)
+        slide_w, slide_h = self.prs.slide_width, self.prs.slide_height
+        side_w = slide_w / 3
+
+        # --- 左半分（画像 or primaryカラー） ---
+        bg_url = data.get("image")
+        if bg_url:
+            stream, im = self._load_image(bg_url)
+            if stream:
+                iw, ih = im.size
+                slide_h = self.prs.slide_height
+
+                # 縦をスライドにフィット
+                scale = slide_h / ih
+                new_w = iw * scale
+                new_h = ih * scale
+                
+                s.shapes.add_picture(stream, 0, 0, width=new_w, height=new_h)
+
+            # 半透明オーバーレイ
+            overlay = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, side_w, slide_h)
+            overlay.fill.solid()
+            overlay.fill.fore_color.rgb = self.colors["ghost"]
+            self._set_shape_transparency(overlay, 40000)  # 40%透過
+            overlay.line.fill.background()
+            overlay.shadow.inherit = False
+        else:
+            # 画像がなければprimaryカラーで塗りつぶし
+            rect = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, side_w, slide_h)
+            rect.fill.solid()
+            rect.fill.fore_color.rgb = self.colors["ghost"]
+            rect.line.fill.background()
+            rect.shadow.inherit = False
+
+        # --- 右半分（背景はスライド標準色） ---
+        rect_right = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, side_w, 0, side_w * 2, slide_h)
+        rect_right.fill.solid()
+        rect_right.fill.fore_color.rgb = self.colors["background"]
+        rect_right.line.fill.background()
+        rect_right.shadow.inherit = False
+
+        # --- 引用符アイコン ---
+        quote_box = s.shapes.add_textbox(side_w + Pt(40), Pt(40), side_w - Pt(80), Pt(80))
+        qf = quote_box.text_frame
+        qp = qf.paragraphs[0]
+        qp.text = "“"   # フォント依存でシャープな形を狙う
+        run = qp.runs[0]
+        run.font.name = "Arial"   
+        run.font.size = Pt(150)
+        run.font.bold = True
+        run.font.color.rgb = self.colors["ghost"]
+        qp.alignment = PP_ALIGN.LEFT
+
+        # --- 引用文 ---
+        qbox = s.shapes.add_textbox(side_w + Pt(80), slide_h*0.25, side_w * 2 - Pt(160), slide_h*0.4)
+        tf = qbox.text_frame
+        tf.word_wrap = True
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p = tf.paragraphs[0]
+        self._style_text(
+            p,
+            data.get("quote", ""),
+            self.fonts["sizes"]["sectionTitle"],
+            bold=True,
+            color=self.colors["text"],
+            align=PP_ALIGN.LEFT
+        )
+
+        # --- 引用元 ---
+        author = data.get("author", "")
+        if author:
+            abox = s.shapes.add_textbox(side_w + Pt(80), slide_h*0.75, side_w * 2 - Pt(80), Pt(80))
+            atf = abox.text_frame
+            ap = atf.paragraphs[0]
+            self._style_text(
+                ap,
+                author,
+                self.fonts["sizes"]["subhead"],
+                color=self.colors["subtext"],
+                align=PP_ALIGN.LEFT
+            )
+
+        return s
+
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
     sf = SlideFactory(plan)   # plan を渡すように変更
@@ -1294,6 +1495,8 @@ def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
         elif t=="table"      : sf.add_table_slide(spec)
         elif t=="flow"       : sf.add_flow_slide(spec)
         elif t=="highlight"  : sf.add_highlight(spec)
+        elif t=="hero"       : sf.add_hero(spec)
+        elif t=="quote"      : sf.add_quote(spec)
     sf.save(out_path)
 
 # ---------------- CLI ----------------

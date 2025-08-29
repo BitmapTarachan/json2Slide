@@ -1,5 +1,6 @@
 {
 "color-theme": "Default",
+"background-image": "https://giftsfromfuture.sakura.ne.jp/presentation/images/example-background.png",
 "slides": [
 {
 "type": "title",
@@ -7,7 +8,7 @@
 "title": "生成AI活用プラン（Copilot編）",
 "lecturer": "講師：XXXX",
 "date": "2025.09.10",
-"image": "https://www.brainpad.co.jp/doors/app/uploads/2024/02/generative_ai_picture1-1024x585-1-1.jpg",
+"image": "https://giftsfromfuture.sakura.ne.jp/presentation/images/example-background.png",
 "imageCaption": "生成AIのイメージ図"
 },
 {
@@ -170,6 +171,18 @@
   "keyword": "F = ma",
   "description": "ニュートンの運動の法則。力は質量と加速度の積で表される。",
   "note": "ここではニュートンの第二法則、運動方程式を強調します。テストでも頻出なので『F=ma』を丸暗記するだけでなく、質量と加速度の関係をイメージできるように説明してください。"
+},
+{
+  "type": "hero",
+  "title": "未来をつくるAI教育",
+  "subtitle": "福岡ECO動物海洋専門学校",
+  "background-image": "https://assets.deep-exp.com/assets/img/uploads/media_content/5125/main_front.jpg"
+},
+{
+  "type": "quote",
+  "quote": "学び続ける者だけが未来を拓く。",
+  "image":"https://www.j-meets.com/column/images/callcenter_speakingwork03.jpg",
+  "author": "— AI教育研究者"
 }
 ]
 }
