@@ -1,1 +1,1 @@
-python json2Slide.py plan.json out.pptx
+python json2Slide.py plan6.json out.pptx

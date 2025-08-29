@@ -1,0 +1,108 @@
+{ 
+    "slides": 
+    [ 
+        { 
+            "type": "title",
+            "subject": "教育工学",
+            "title": "専門学校教育における生成AIの活用",
+            "date": "2025.08.27",
+            "image": "https://aisuite.jp/wp-content/uploads/2024/03/genai_cloud.jpg"
+        },
+        { 
+            "type": "section",
+            "sectionNo": "01",
+            "title": "導入：なぜ生成AIか" 
+        },
+        { 
+            "type": "content",
+            "title": "教育現場の変化",
+            "points": 
+            [ 
+                "学生はデジタル環境で学ぶ時間が増加",
+                "情報量が膨大で取捨選択が困難",
+                "学習スタイルが多様化し個別対応が求められる" 
+            ],
+            "bodyText": "従来の一斉授業だけでは対応しにくい学習ニーズに対し、生成AIは柔軟で個別最適な支援を提供できる可能性があります。" 
+        },
+        { 
+            "type": "compare",
+            "title": "生成AIの利点と懸念",
+            "leftTitle": "利点",
+            "leftItems": 
+            [ 
+                "個別に合わせた学習支援が可能",
+                "反復練習や質問対応を自動化",
+                "教材作成や翻訳などの効率化" 
+            ],
+            "rightTitle": "懸念",
+            "rightItems": [ 
+                "誤情報や偏りのリスク",
+                "学生の思考力低下の懸念",
+                "著作権や倫理の課題" 
+            ],
+            "bodyText": "利点と課題を理解したうえで、授業の目的に沿った適切な導入が重要です。" 
+        },
+        { 
+            "type": "section",
+            "sectionNo": "02",
+            "title": "具体的な活用例" 
+        },
+        {
+            "type": "cards",
+            "title": "授業での利用シナリオ",
+            "items": 
+            [ 
+                { 
+                    "title": "レポート支援",
+                    "desc": "文章の構成提案や推敲補助を行う" 
+                },
+                { 
+                    "title": "英語学習",
+                    "desc": "翻訳や会話練習の相手として活用" 
+                },
+                { 
+                    "title": "専門分野解説",
+                    "desc": "複雑な用語をわかりやすく説明" 
+                },
+                { 
+                    "title": "教材作成",
+                    "desc": "小テストや例題を自動生成" 
+                } 
+            ]
+        },
+        { 
+            "type": "content",
+            "title": "先生の役割の変化",
+            "points": [ 
+                "知識提供者から学習支援者へ",
+                "AIと協働し学習体験をデザイン",
+                "学生の批判的思考や創造力を育成" 
+            ],
+            "bodyText": "AIが提供する情報を鵜呑みにさせるのではなく、検証・応用できる力を育てる指導が求められます。" 
+        },
+        { 
+            "type": "section",
+            "sectionNo": "03",
+            "title": "まとめ" 
+        },
+        { 
+            "type": "content",
+            "title": "導入のポイント",
+            "points": [ 
+                "教育目的に沿った利用方針を定める",
+                "利点とリスクを学生と共有する",
+                "AIを補助ツールとして位置づける" 
+            ],
+            "bodyText": "生成AIは教育の質を高める可能性を持つ一方、課題も伴います。先生が主体的に学び、適切に使いこなすことが重要です。" 
+        },
+        { 
+            "type": "image-auto",
+            "title": "教育と生成AIのイメージ",
+            "images": [ 
+                { "url": "https://www.oshieru.biz/plus/wp-content/uploads/2017/01/02.jpg","caption": "先生による授業の様子" },
+                { "url": "https://jichitai.works/uploads/articles/2024-08-09-11-41-03_edu-dx%20(2).jpg","caption": "PCを活用して学ぶ学生" },
+                { "url": "https://aisuite.jp/wp-content/uploads/2024/03/genai_cloud.jpg","caption": "生成AIのイメージ" } 
+            ] 
+        } 
+    ] 
+}
