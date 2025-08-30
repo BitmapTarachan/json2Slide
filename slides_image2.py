@@ -48,7 +48,7 @@ def render_image2_default(self, slide, images, font_size):
             left+new_w+Pt(20), top, slide_w/2 - new_w - Pt(40), new_h
         )
         tf = cap_box.text_frame
-        tf.word.wrap = True
+        tf.word_wrap = True
         p = tf.paragraphs[0]
         self._style_text(p, img.get("caption",""), font_size, self.colors["text"])
         p.alignment = PP_ALIGN.LEFT

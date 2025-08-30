@@ -45,6 +45,7 @@ def render_image4_default(self, slide, images, font_size):
         caption = img.get("caption", "")
         cap_box = slide.shapes.add_textbox(cur_left, top_img + max_h + Pt(10), w, Pt(40))
         tf = cap_box.text_frame
+        tf.word_wrap = True
         p = tf.paragraphs[0]
         self._style_text(p, caption, font_size, color=self.colors["text"])
         p.alignment = PP_ALIGN.LEFT
