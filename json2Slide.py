@@ -10,7 +10,8 @@ import json
 import sys
 import requests
 import io
-import math
+import os
+import platform
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -30,6 +31,7 @@ from pptx.oxml.xmlchemy import OxmlElement
 from PIL import Image
 
 from themes_default import DefaultTheme
+from themes_simplenote import SimpleNoteTheme
 
 
 
@@ -40,6 +42,7 @@ SUBTITLE_FONT_SIZE = Pt(18)
 HEADING_FONT_SIZE = Pt(28)
 BODY_FONT_SIZE = Pt(18)
 CAPTION_FONT_SIZE = Pt(14)
+ACA_BASE_URL = "https://myaca.azurecontainerapps.io/"
 
 # レイアウトの既定マップ（テンプレートにより差異あり）
 # 必要に応じて調整してください。
@@ -168,6 +171,7 @@ class LayoutManager:
         }
 
 # ---------------------- ユーティリティ ----------------------
+
 def set_paragraph_style(paragraph, text: str, font_size: Pt, bold=False, italic=False, color: Optional[RGBColor]=None, align=None):
     paragraph.text = text
     run = paragraph.runs[0] if paragraph.runs else paragraph.add_run()
@@ -221,6 +225,14 @@ class SlideFactory:
         self.plan = plan
         self.theme = theme
         self.prs = Presentation()
+
+        self.image_base_dir = "image"
+        self.is_aca = False
+        if platform.system() != "Windows":
+            self.is_aca = False
+        else:
+            self.is_aca = True
+        
         # イメージキャッシュ
         self._image_cache = {}
 
@@ -310,6 +322,15 @@ class SlideFactory:
             paragraph.alignment = align
 
     def _load_image(self, path_or_url: str):
+
+        # ACAかローカルのパスを解釈
+        if not path_or_url.startswith(("http://","https://")): 
+            # ファイル名らしきものの解釈
+            if self.is_aca:
+                path_or_url = f"{ACA_BASE_URL}/{self.image_base_dir}/{path_or_url}" 
+            else:
+                path_or_url = os.path.join(self.image_base_dir, path_or_url)
+        
         try:
             # キャッシュヒット
             if path_or_url in self._image_cache:
@@ -412,7 +433,7 @@ class SlideFactory:
 
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
-    theme = DefaultTheme()
+    theme = SimpleNoteTheme()
     sf = SlideFactory(plan,theme)
 
     for spec in plan.get("slides", []):

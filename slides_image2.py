@@ -50,7 +50,7 @@ def render_image2_default(self, slide, images, font_size):
         tf = cap_box.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
-        self._style_text(p, img.get("caption",""), font_size, self.colors["text"])
+        self._style_text(p, img.get("caption",""), font_size, color=self.colors["text"]) 
         p.alignment = PP_ALIGN.LEFT
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
         shapes.append((pic, cap_box))
