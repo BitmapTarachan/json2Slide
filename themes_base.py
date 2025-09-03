@@ -1,4 +1,5 @@
 # themes_base.py
+
 from abc import ABC, abstractmethod
 from pptx.util import Pt
 

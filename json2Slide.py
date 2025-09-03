@@ -30,8 +30,6 @@ from pptx.oxml.xmlchemy import OxmlElement
 
 from PIL import Image
 
-from themes_default import DefaultTheme
-from themes_simplenote import SimpleNoteTheme
 
 
 
@@ -226,9 +224,9 @@ class SlideFactory:
         self.theme = theme
         self.prs = Presentation()
 
-        self.image_base_dir = "image"
+        self.image_base_dir = "images"
         self.is_aca = False
-        if platform.system() != "Windows":
+        if platform.system() == "Windows":
             self.is_aca = False
         else:
             self.is_aca = True
@@ -358,7 +356,7 @@ class SlideFactory:
             return stream, im
         except Exception as e:
             print(f"[WARN] 画像を読み込めませんでした: {path_or_url} ({e})")
-            return None, None
+            return None
     
     def _add_slide_title(self, slide, title: str):
         """
@@ -405,7 +403,7 @@ class SlideFactory:
         if slide_data and "background-image" in slide_data:
             bg_url = slide_data["background-image"]
             stream, _ = self._load_image(bg_url)
-            if stream and _:
+            if stream :
                 slide.shapes.add_picture(stream, 0, 0,
                                         width=self.prs.slide_width,
                                         height=self.prs.slide_height)
@@ -433,6 +431,10 @@ class SlideFactory:
 
     # ---------------------- ビルド関数 ----------------------
 def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
+    
+    from themes_default import DefaultTheme
+    from themes_simplenote import SimpleNoteTheme
+
     theme = SimpleNoteTheme()
     sf = SlideFactory(plan,theme)
 
