@@ -66,8 +66,6 @@ class SimpleNoteTheme(themes_base.SlideTheme):
         
     def render_title(self, factory, data):
         slide = factory._new_slide(data)
-
-        self.top_title(slide, factory, "タイトルテスト文字列")
         
         # 横棒
         self.add_full_height_image(factory,slide)
@@ -158,16 +156,41 @@ class SimpleNoteTheme(themes_base.SlideTheme):
         return slide
     
     def render_cards(self, factory, data):
-        return slides_cards.render_cards_default(factory, data)
+        slide = slides_cards.render_cards_default(factory, data)
+        self.delete_default_title(slide)
+
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
     
     def render_compare(self, factory, data):
-        return slides_compare.render_compare_default(factory, data)
+        slide = slides_compare.render_compare_default(factory, data)
+        self.delete_default_title(slide)
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+        # 横棒
+        self.add_full_height_image(factory,slide)
+
+        return slide
+
     
     def render_progress(self, factory, data):
-        return slides_progress.render_progress_default(factory, data)
-    
+        slide = slides_progress.render_progress_default(factory, data)
+        self.delete_default_title(slide)
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+   
     def render_timeline(self, factory, data):
-        return slides_timeline.render_timeline_default(factory, data)
+        slide = slides_timeline.render_timeline_default(factory, data)
+        self.delete_default_title(slide)
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+
+        return slide
+
     
     def render_image1(self, factory, slide, images, font_size):
         return slides_image1.render_image1_default(factory, slide, images, font_size)
@@ -182,19 +205,120 @@ class SimpleNoteTheme(themes_base.SlideTheme):
         return slides_image4.render_image4_default(factory, slide, images, font_size)
 
     def render_qa_question(self, factory, data):
-        return slides_qa_question.render_qa_question_defaults(factory, data)
+        slides_qa_question.render_qa_question_defaults(factory, data)
     
     def render_qa_answer(self, factory, data):
         return slides_qa_answer.render_qa_answer_default(factory, data)
 
     def render_table(self, factory, data):
-        return slides_table.render_table_default(factory, data)
+        slide = factory._new_slide(data)
+        slide_w, slide_h = factory.prs.slide_width, factory.prs.slide_height
+
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+
+        # 横棒
+        self.add_full_height_image(factory,slide)
+
+        headers = data.get("headers", [])
+        rows = data.get("rows", [])
+        n_rows, n_cols = len(rows) + 1, len(headers)        
+
+        top = Pt(100)
+        left = Pt(100)
+        width = int(slide_w - Pt(160))
+        height = int(slide_h * 0.55)
+
+        table_shape = slide.shapes.add_table(n_rows, n_cols, left, top, width, height)
+        table = table_shape.table
+
+        # 列幅（整数化必須）
+        col_width = int(width / n_cols)
+        for col in table.columns:
+            col.width = col_width
+
+        # 行高さ（整数化必須）
+        row_height = int(height / n_rows)
+        for row in table.rows:
+            row.height = row_height
+
+        # ヘッダー
+        for j, header in enumerate(headers):
+            cell = table.cell(0, j)
+            cell.text_frame.clear()
+            p = cell.text_frame.paragraphs[0]
+            run = p.add_run()
+            run.text = header
+            run.font.size = Pt(18)
+            run.font.bold = True
+            run.font.name = "BIZ UDゴシック"
+            run.font.color.rgb = factory.colors["background"]
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = RGBColor(128,128,128)
+            p.alignment = PP_ALIGN.CENTER
+
+        # データ
+        for i, row_data in enumerate(rows):
+            for j, val in enumerate(row_data):
+                cell = table.cell(i + 1, j)
+                cell.text_frame.clear()
+                p = cell.text_frame.paragraphs[0]
+                run = p.add_run()
+                run.text = str(val)
+                run.font.size = Pt(16)
+                run.font.name = "BIZ UDゴシック"
+                run.font.color.rgb = factory.colors["text"]
+                p.alignment = PP_ALIGN.CENTER
+                if i % 2 == 0:
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = factory.colors["surface"]
+                else:
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = factory.colors["background"]
+
+        # bodyText（高さが溢れないように制限）
+        body_text = data.get("bodyText")
+        if body_text:
+            b_top = min(top + height + Pt(20), slide_h - Pt(100))
+            b_left = Pt(100)
+            b_width = int(slide_w - Pt(150))
+            b_height = int(slide_h - b_top - Pt(40))
+
+            box = slide.shapes.add_textbox(b_left, b_top, b_width, b_height)
+            tf = box.text_frame
+            tf.clear()
+            p = tf.paragraphs[0]
+            run = p.add_run()
+            run.text = body_text
+            run.font.size = Pt(16)
+            run.font.name = "BIZ UDゴシック"
+            run.font.color.rgb = factory.colors["text"]
+
+        return slide
     
     def render_flow(self, factory, data):
-        return slides_flow.render_flow_default(factory, data)
+        slide = slides_flow.render_flow_default(factory, data)
+        self.delete_default_title(slide)
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+        # 横棒
+        self.add_full_height_image(factory,slide)
+
+        return slide
+
 
     def render_highlight(self, factory, data):
-        return slides_highlight.render_highlight_default(factory, data)
+        slide = slides_highlight.render_highlight_default(factory, data)
+        self.delete_default_title(slide)
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+        # 横棒
+        self.add_full_height_image(factory,slide)
+
+        return slide
 
     def render_quote(self, factory, data):
         return slides_quote.render_quote_default(factory, data)
@@ -203,8 +327,22 @@ class SimpleNoteTheme(themes_base.SlideTheme):
         return slides_hero.render_hero_default(factory, data)
     
     def render_features(self, factory, data):
-        return slides_features.render_features_default(factory, data)
-    
-    def render_closing(self, factory, data):
-        return slides_closing.render_closing_default(factory, data)
+        slide = slides_features.render_features_default(factory, data)
+        self.delete_default_title(slide)
+        
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+        # 横棒
+        self.add_full_height_image(factory,slide)
 
+        return slide
+       
+    def render_closing(self, factory, data):
+        slide = slides_closing.render_closing_default(factory, data)
+        self.delete_default_title(slide)
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+        # 横棒
+        self.add_full_height_image(factory,slide)

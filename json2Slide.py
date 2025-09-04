@@ -30,9 +30,6 @@ from pptx.oxml.xmlchemy import OxmlElement
 
 from PIL import Image
 
-
-
-
 # -------- ユーザー環境に合わせて調整可能な既定値 --------
 DEFAULT_FONT = "Biz UDゴシック"           # 日本語フォントを既定化
 TITLE_FONT_SIZE = Pt(36)

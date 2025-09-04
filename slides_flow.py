@@ -34,6 +34,8 @@ def render_flow_default(factory, data: Dict[str, Any]):
             shape.fill.solid()
             shape.fill.fore_color.rgb = factory.colors["surface"]
             shape.line.color.rgb = factory.colors["primary"]
+            # 枠線を消す
+            shape.line.fill.background()
 
             # 数字（左上に重ねる）
             num_box = s.shapes.add_textbox(left-Pt(20), top-Pt(40), Pt(40), Pt(40))
