@@ -5,6 +5,13 @@ from pptx.util import Pt
 
 class SlideTheme(ABC):
 
+    def delete_default_title(self, slide):
+        #DefaultTitleの削除
+        for shape in slide.shapes:
+            if shape.name in ("TitleText", "TitleBar"):
+                sp = shape._element
+                sp.getparent().remove(sp)
+
     def render_image_auto(self, factory, data):
         """画像の枚数に応じて適切なメソッドを呼び分ける"""
         slide = factory._new_slide(data)
@@ -95,5 +102,14 @@ class SlideTheme(ABC):
     @abstractmethod
     def render_hero(self, factory, data):
         pass
+
+    @abstractmethod
+    def render_features(self, factory, data):
+        pass
+
+    @abstractmethod
+    def render_closing(self, factory, data):
+        pass
+
 
 

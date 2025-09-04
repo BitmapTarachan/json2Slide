@@ -56,3 +56,5 @@ def render_timeline_default(factory, data: Dict[str, Any]):
         dbox = s.shapes.add_textbox(x-Cm(2), bar_top+Cm(0.5), Cm(4), Cm(1))
         dp = dbox.text_frame.paragraphs[0]
         factory._style_text(dp, date, factory.fonts["sizes"]["caption"], color=factory.colors["subtext"], align=PP_ALIGN.CENTER)
+    
+    return s

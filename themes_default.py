@@ -16,6 +16,8 @@ import slides_qa_answer
 import slides_table
 import slides_flow
 import slides_highlight
+import slides_features
+import slides_closing
 
 import slides_quote
 import slides_hero
@@ -77,5 +79,9 @@ class DefaultTheme(SlideTheme):
     def render_hero(self, factory, data):
         return slides_hero.render_hero_default(factory, data)
     
-
+    def render_features(self, factory, data):
+        return slides_features.render_features_default(factory, data)
+    
+    def render_closing(self, factory, data):
+        return slides_closing.render_closing_default(factory, data)
 

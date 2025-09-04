@@ -140,3 +140,5 @@ def render_flow_default(factory, data: Dict[str, Any]):
             tf.word_wrap = True
             p = tf.paragraphs[0]
             factory._style_text(p, body, factory.fonts["sizes"]["body"], color=factory.colors["text"])
+    
+    return s

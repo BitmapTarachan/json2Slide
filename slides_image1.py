@@ -49,3 +49,4 @@ def render_image1_default(factory, slide, images, font_size):
     p.text = caption
     p.alignment = PP_ALIGN.LEFT
     factory._style_text(p, caption, font_size, factory.colors["text"])
+

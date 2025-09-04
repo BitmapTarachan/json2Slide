@@ -62,3 +62,5 @@ def render_highlight_default(factory, data: Dict[str, Any]):
         run2.font.name = "BIZ UDPゴシック"
         run2.font.color.rgb = factory.colors["text"]
         p2.alignment = PP_ALIGN.CENTER    
+
+    return s

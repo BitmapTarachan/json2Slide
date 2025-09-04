@@ -37,7 +37,7 @@
 
 【各タイプの厳密仕様】
 - section: { "type":"section","sectionNo","title" }
-- content: { "type":"content","title","points":[2〜6項目], "bodyText","note" }  // bodyText 任意
+- content: { "type":"content","title","points":[2〜6項目], "bodyText","note" }  
 - image-auto: { "type":"image-auto","title","images":[{"url","caption"}(1〜4)], "note" }  
   - キャプションは**10〜18文字**／主語明確／冗長語回避。縦横比は保持
 - compare: { "type":"compare","title","leftTitle","leftItems"[3〜6],"rightTitle","rightItems"[3〜6], "bodyText","images":[{"url"},{"url"}], "note" }  // images 任意

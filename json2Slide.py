@@ -98,9 +98,9 @@ CONFIG = {
             "ghostNum" : { "left": 100, "top": 120, "width": 300, "height": 200 },
         },
         "contentSlide": {
-            "title"    : { "left": 28, "top":  30, "width": 830, "height":  50 },
-            "subhead"  : { "left": 25, "top": 100, "width": 830, "height":  30 },
-            "body"     : { "left": 25, "top": 150, "width": 910, "height": 303 },
+            "title"    : { "left": 50, "top":  30, "width": 830, "height":  50 },
+            "subhead"  : { "left": 50, "top": 100, "width": 830, "height":  30 },
+            "body"     : { "left": 50, "top": 150, "width": 910, "height": 303 },
         }
     }
 }
@@ -290,7 +290,11 @@ class SlideFactory:
             return self.theme.render_hero(self, spec) 
         elif t == "quote":
             return self.theme.render_quote(self, spec)
-
+        elif t == "features":
+            return self.theme.render_features(self, spec)
+        elif t == "closing":
+            print("in closing")
+            return self.theme.render_closing(self, spec)
 
     def save(self, out_path: str):
         Path(out_path).parent.mkdir(parents=True, exist_ok=True)
@@ -380,12 +384,14 @@ class SlideFactory:
         slide.shapes[-1].fill.fore_color.rgb = self.colors["accent"]
         slide.shapes[-1].line.fill.background()  # 枠線なし
         slide.shapes[-1].shadow.inherit = False  # 影を消す（フラット）
+        slide.shapes[-1].name = "TitleBar"
 
         # --- タイトルテキスト ---
         tbox = slide.shapes.add_textbox(
             left + bar_width + bar_margin, top,
             width - bar_width - bar_margin, height
         )
+        tbox.name = "TitleText"
         tf = tbox.text_frame
         tp = tf.paragraphs[0]
         self._style_text(
@@ -393,7 +399,7 @@ class SlideFactory:
             title,
             self.fonts["sizes"]["contentTitle"],
             bold=True,
-            color=self.colors["primary"]
+            color=self.colors["text"]
         )
         tp.alignment = PP_ALIGN.LEFT
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE

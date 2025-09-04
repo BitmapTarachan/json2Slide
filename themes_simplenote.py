@@ -17,6 +17,8 @@ import slides_flow
 import slides_highlight
 import slides_quote
 import slides_hero
+import slides_features
+import slides_closing
 
 from pptx.util import Pt
 from pptx.enum.text import PP_ALIGN
@@ -39,11 +41,33 @@ class SimpleNoteTheme(themes_base.SlideTheme):
         # 画像を追加
         slide.shapes.add_picture(stream, 0, 0, height=slide_height)
     
-    def top_title(title_str):
-        pass
-
+    def top_title(self, slide, factory, title_str):
+        if title_str:
+            sbox = slide.shapes.add_textbox(Pt(100), Pt(20), factory.prs.slide_width - Pt(100), Pt(32))
+            sp = sbox.text_frame.paragraphs[0]
+            factory._style_text(
+                sp,
+                title_str,
+                Pt(22),
+                color=factory.colors["text"],
+                bold=True
+            )
+            sbox.text_frame.word_wrap = True
+        
+        # タイトル下の横線
+        line = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Pt(70), Pt(60), Pt(850), Pt(1)
+        )
+        line.fill.solid()
+        line.fill.fore_color.rgb = RGBColor(0, 0, 0)  # 黒
+        line.line.fill.background()  # 枠線なし
+        line.shadow.inherit = False
+        
     def render_title(self, factory, data):
         slide = factory._new_slide(data)
+
+        self.top_title(slide, factory, "タイトルテスト文字列")
         
         # 横棒
         self.add_full_height_image(factory,slide)
@@ -51,7 +75,7 @@ class SimpleNoteTheme(themes_base.SlideTheme):
         #subject
         subject = data.get("subject")
         if subject:
-            sbox = slide.shapes.add_textbox(Pt(100), Pt(170), factory.prs.slide_width, Pt(20))
+            sbox = slide.shapes.add_textbox(Pt(100), Pt(170), factory.prs.slide_width - Pt(100), Pt(30))
             sp = sbox.text_frame.paragraphs[0]
             factory._style_text(
                 sp,
@@ -65,7 +89,7 @@ class SimpleNoteTheme(themes_base.SlideTheme):
         # タイトル
         head = data.get("title")
         if head:
-            sbox = slide.shapes.add_textbox(Pt(100), Pt(200), factory.prs.slide_width, Pt(50))
+            sbox = slide.shapes.add_textbox(Pt(100), Pt(200), factory.prs.slide_width - Pt(100), Pt(50))
             sp = sbox.text_frame.paragraphs[0]
             factory._style_text(
                 sp,
@@ -90,7 +114,7 @@ class SimpleNoteTheme(themes_base.SlideTheme):
         line_top = Pt(260)
         line = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
-            Pt(100), line_top + Pt(1), Pt(900), Pt(1)
+            Pt(100), line_top + Pt(1), Pt(850), Pt(1)
         )
         line.fill.solid()
         line.fill.fore_color.rgb = RGBColor(0, 0, 0)  # 黒
@@ -118,15 +142,20 @@ class SimpleNoteTheme(themes_base.SlideTheme):
             color=factory.colors["subtext"]
         )
 
-
-
-
-
     def render_section(self, factory, data):
         return slides_section.render_section_default(factory, data)
     
     def render_content(self, factory, data):
-        return slides_content.render_content_default(factory, data)
+        slide = slides_content.render_content_default(factory, data)
+        self.delete_default_title(slide)
+
+        # タイトル
+        title = data.get("title")
+        self.top_title(slide, factory, title)
+        # 横棒
+        self.add_full_height_image(factory,slide)
+
+        return slide
     
     def render_cards(self, factory, data):
         return slides_cards.render_cards_default(factory, data)
@@ -173,5 +202,9 @@ class SimpleNoteTheme(themes_base.SlideTheme):
     def render_hero(self, factory, data):
         return slides_hero.render_hero_default(factory, data)
     
-
+    def render_features(self, factory, data):
+        return slides_features.render_features_default(factory, data)
+    
+    def render_closing(self, factory, data):
+        return slides_closing.render_closing_default(factory, data)
 
