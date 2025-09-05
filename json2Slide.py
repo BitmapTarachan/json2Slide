@@ -290,7 +290,6 @@ class SlideFactory:
         elif t == "features":
             return self.theme.render_features(self, spec)
         elif t == "closing":
-            print("in closing")
             return self.theme.render_closing(self, spec)
 
     def save(self, out_path: str):
@@ -433,12 +432,18 @@ class SlideFactory:
         sF.append(alpha_elem)
 
     # ---------------------- ビルド関数 ----------------------
-def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
+def build_pptx_from_plan(plan: Dict[str, Any], out_path: str, themename):
     
     from themes_default import DefaultTheme
     from themes_simplenote import SimpleNoteTheme
 
-    theme = SimpleNoteTheme()
+    if themename == "default":
+        theme = DefaultTheme()
+    elif themename == "simplenote":    
+        theme = SimpleNoteTheme()
+    else:
+        theme = DefaultTheme
+
     sf = SlideFactory(plan,theme)
 
     for spec in plan.get("slides", []):
@@ -448,14 +453,16 @@ def build_pptx_from_plan(plan: Dict[str, Any], out_path: str):
 
 # ---------------- CLI ----------------
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python json2.py plan.json out.pptx")
+    if len(sys.argv) < 4:
+        print("Usage: python json2.py plan.json out.pptx theme")
         sys.exit(1)
 
     plan_path = Path(sys.argv[1])
     out_path = sys.argv[2]
+    theme = sys.argv[3]
+
     with plan_path.open("r", encoding="utf-8") as f:
         plan = json.load(f)
 
-    build_pptx_from_plan(plan, out_path)
+    build_pptx_from_plan(plan, out_path, themename=theme)
     print(f"✅ Done: {out_path}")
