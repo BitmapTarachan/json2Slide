@@ -30,6 +30,7 @@ class SimpleNoteTheme(themes_base.SlideTheme):
 
 
     def add_full_height_image(self, factory, slide):
+
         stream, im = factory._load_image("simplenote1.png")
         if stream is None:
             print("[WARN] 画像を読み込めません: simplenote1.png")

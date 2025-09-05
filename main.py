@@ -1,8 +1,8 @@
 import sys, json, uuid, tempfile, os
 from pathlib import Path
 from datetime import datetime, timedelta
-from fastapi import FastAPI, UploadFile, Query
-
+from fastapi import FastAPI, UploadFile, File, Query
+import uvicorn
 
 # --- PPTX生成関数 ---
 from json2Slide import build_pptx_from_plan  
@@ -39,15 +39,14 @@ if BLOB_CONN_STR:
         )
         return f"{blob_client.url}?{sas_token}"
 
-# --- APIモード ---
 app = FastAPI()
 
+# --- APIモード: ファイルアップロード ---
 @app.post("/generate")
 async def generate(
-    file: UploadFile,
+    file: UploadFile = File(...),
     theme: str = Query(..., description="スライドテーマ（必須）")
 ):
-
     # JSONを一時ファイルに保存
     with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp:
         tmp.write(await file.read())
@@ -69,19 +68,42 @@ async def generate(
     sas_url = upload_to_blob(out_path)
     return {"url": sas_url}
 
+
+# --- APIモード: JSON直受け ---
+@app.post("/generate-json")
+async def generate_json(
+    plan: dict,
+    theme: str = Query(..., description="スライドテーマ（必須）")
+):
+    out_path = Path(tempfile.gettempdir()) / f"{uuid.uuid4()}.pptx"
+    build_pptx_from_plan(plan, out_path, themename=theme)
+
+    if not BLOB_CONN_STR:
+        if ENV == "dev":
+            return {"local_path": str(out_path), "note": "Blob未設定なのでローカル保存"}
+        else:
+            raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING が未設定です！")
+
+    sas_url = upload_to_blob(out_path)
+    return {"url": sas_url}
+
+
 # --- CLIモード ---
 def cli_main():
-    if len(sys.argv) < 3:
-        print("Usage: python main.py plan.json out.pptx")
+    if len(sys.argv) < 4:
+        print("Usage: python main.py plan.json out.pptx theme")
         sys.exit(1)
 
     plan_path = Path(sys.argv[1])
-    out_path = Path(sys.argv[2])
+    out_path = sys.argv[2]
+    theme = sys.argv[3]
+
     with plan_path.open("r", encoding="utf-8") as f:
         plan = json.load(f)
 
-    build_pptx_from_plan(plan, out_path)
+    build_pptx_from_plan(plan, out_path, themename=theme)
     print(f"✅ Done: {out_path}")
+
 
 # --- 実行切替 ---
 if __name__ == "__main__":

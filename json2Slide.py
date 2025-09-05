@@ -222,11 +222,14 @@ class SlideFactory:
         self.prs = Presentation()
 
         self.image_base_dir = "images"
-        self.is_aca = False
-        if platform.system() == "Windows":
-            self.is_aca = False
+
+        # ACAモードかどうかを環境変数で切り替える
+        run_env = os.getenv("RUN_ENV", "").lower()
+
+        if run_env == "aca":
+            self.is_aca = True   # ACA本番環境
         else:
-            self.is_aca = True
+            self.is_aca = False  # ローカル or Docker
         
         # イメージキャッシュ
         self._image_cache = {}
@@ -320,43 +323,46 @@ class SlideFactory:
             paragraph.alignment = align
 
     def _load_image(self, path_or_url: str):
+        #import logging, sys
+        #logger = logging.getLogger("uvicorn")
 
-        # ACAかローカルのパスを解釈
-        if not path_or_url.startswith(("http://","https://")): 
-            # ファイル名らしきものの解釈
-            if self.is_aca:
-                path_or_url = f"{ACA_BASE_URL}/{self.image_base_dir}/{path_or_url}" 
-            else:
-                path_or_url = os.path.join(self.image_base_dir, path_or_url)
-        
+        #logger.info(f"[DEBUG] 入力: {path_or_url}, base_dir: {self.image_base_dir}, is_aca={self.is_aca}")
+
+        # http/https ならそのまま外部URL
+        if not path_or_url.startswith(("http://", "https://")):
+            # ローカルファイルとして解釈
+            base_dir = os.getenv("IMAGE_BASE_DIR", self.image_base_dir)
+            # 絶対パスに正規化（/app/images/simplenote1.png など）
+            path_or_url = os.path.abspath(os.path.join(base_dir, path_or_url))
+
+        #logger.info(f"[DEBUG] resolved path_or_url={path_or_url}")
+
         try:
-            # キャッシュヒット
+            # キャッシュヒット確認
             if path_or_url in self._image_cache:
-                # BytesIOは再利用のため毎回seek(0)して返す
                 stream, im = self._image_cache[path_or_url]
                 stream.seek(0)
                 return stream, im
 
-            # URLから取得
             if path_or_url.startswith(("http://", "https://")):
+                # 外部URL（SharePointなど）
                 response = requests.get(path_or_url, timeout=10)
                 response.raise_for_status()
                 stream = io.BytesIO(response.content)
             else:
-                # ローカルファイル
+                # ローカルファイル（テーマ画像など）
                 with open(path_or_url, "rb") as f:
                     stream = io.BytesIO(f.read())
 
-            # PILでロードしてキャッシュ
             im = Image.open(stream)
-            im.load()           # Lazy読み込みを強制
-            stream.seek(0)      # 再利用に備えて戻す
+            im.load()
+            stream.seek(0)
             self._image_cache[path_or_url] = (stream, im)
 
             return stream, im
         except Exception as e:
-            print(f"[WARN] 画像を読み込めませんでした: {path_or_url} ({e})")
-            return None
+            print(f"[ERROR] {path_or_url} -> {repr(e)}", file=sys.stderr, flush=True)
+            raise
     
     def _add_slide_title(self, slide, title: str):
         """
@@ -450,19 +456,3 @@ def build_pptx_from_plan(plan: Dict[str, Any], out_path: str, themename):
         sf.add_slide(spec)
 
     sf.save(out_path)
-
-# ---------------- CLI ----------------
-if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("Usage: python json2.py plan.json out.pptx theme")
-        sys.exit(1)
-
-    plan_path = Path(sys.argv[1])
-    out_path = sys.argv[2]
-    theme = sys.argv[3]
-
-    with plan_path.open("r", encoding="utf-8") as f:
-        plan = json.load(f)
-
-    build_pptx_from_plan(plan, out_path, themename=theme)
-    print(f"✅ Done: {out_path}")

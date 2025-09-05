@@ -1,0 +1,1 @@
+curl.exe -X POST "http://127.0.0.1:8000/generate-json?theme=simplenote" -H "Content-Type: application/json" --data-binary "@plan.json"

@@ -1,1 +1,1 @@
-python json2Slide.py alltest.json out.pptx simplenote
+python main.py alltest.json out.pptx simplenote
