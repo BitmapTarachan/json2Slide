@@ -1,8 +1,10 @@
 import sys, json, uuid, tempfile, os
 from pathlib import Path
 from datetime import datetime, timedelta
-from fastapi import FastAPI, UploadFile, File, Query
+from fastapi import FastAPI, UploadFile, Body, File, Query
+from fastapi.responses import JSONResponse
 import uvicorn
+
 
 # --- PPTX生成関数 ---
 from json2Slide import build_pptx_from_plan  
@@ -72,21 +74,81 @@ async def generate(
 # --- APIモード: JSON直受け ---
 @app.post("/generate-json")
 async def generate_json(
-    plan: dict,
+    body: str = Body(...),
     theme: str = Query(..., description="スライドテーマ（必須）")
 ):
-    out_path = Path(tempfile.gettempdir()) / f"{uuid.uuid4()}.pptx"
-    build_pptx_from_plan(plan, out_path, themename=theme)
+    try:
+        # JSONパース（壊れていたらINVALID_JSON）
+        try:
+            plan = json.loads(body)
+        except json.JSONDecodeError:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "INVALID_JSON",
+                        "message": "アップロードされたJSONが壊れています"
+                    }
+                }
+            )
 
-    if not BLOB_CONN_STR:
-        if ENV == "dev":
-            return {"local_path": str(out_path), "note": "Blob未設定なのでローカル保存"}
-        else:
-            raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING が未設定です！")
+        out_path = Path(tempfile.gettempdir()) / f"{uuid.uuid4()}.pptx"
 
-    sas_url = upload_to_blob(out_path)
-    return {"url": sas_url}
+        # PPTX生成
+        try:
+            build_pptx_from_plan(plan, out_path, themename=theme)
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "BUILD_FAILED",
+                        "message": f"PPTX生成に失敗しました: {str(e)}"
+                    }
+                }
+            )
 
+        # Blob保存 or ローカル返却
+        if not BLOB_CONN_STR:
+            if ENV == "dev":
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "success": True,
+                        "local_path": str(out_path),
+                        "note": "Blob未設定なのでローカル保存"
+                    }
+                )
+            else:
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "success": False,
+                        "error": {
+                            "code": "NO_BLOB_CONFIG",
+                            "message": "AZURE_STORAGE_CONNECTION_STRING が未設定です"
+                        }
+                    }
+                )
+
+        # 正常終了
+        sas_url = upload_to_blob(out_path)
+        return JSONResponse(status_code=200, content={"success": True, "url": sas_url})
+
+    except Exception as e:
+        # 想定外のエラー
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": str(e)
+                }
+            }
+        )
 
 # --- CLIモード ---
 def cli_main():
